@@ -10,8 +10,13 @@ export class WaveManager {
         this.enemiesRemaining = 0;
         this.enemies = [];
         this.waveActive = false;
-        this.timeBetweenWaves = 5000; // 5 seconds between waves
+        this.timeBetweenWaves = 0; // No pause between waves
         this.waveTimeout = null;
+        
+        // Wave timer properties
+        this.waveTimerDuration = 60000; // 60 seconds per wave
+        this.waveTimer = 0;
+        this.waveTimerActive = false;
         
         // Store percentages of enemy types by wave
         this.enemyDistribution = {
@@ -45,6 +50,22 @@ export class WaveManager {
         this.waveContainer.style.zIndex = '100';
         document.body.appendChild(this.waveContainer);
         
+        // Wave timer display
+        this.timerContainer = document.createElement('div');
+        this.timerContainer.style.position = 'absolute';
+        this.timerContainer.style.top = '70px';
+        this.timerContainer.style.right = '20px';
+        this.timerContainer.style.color = 'white';
+        this.timerContainer.style.fontFamily = 'Arial, sans-serif';
+        this.timerContainer.style.fontSize = '18px';
+        this.timerContainer.style.textAlign = 'center';
+        this.timerContainer.style.padding = '5px 15px';
+        this.timerContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+        this.timerContainer.style.borderRadius = '5px';
+        this.timerContainer.style.zIndex = '100';
+        this.timerContainer.style.display = 'none'; // Hide initially
+        document.body.appendChild(this.timerContainer);
+        
         // Update display
         this.updateWaveDisplay();
     }
@@ -52,10 +73,29 @@ export class WaveManager {
     updateWaveDisplay() {
         if (this.waveActive) {
             this.waveContainer.textContent = `Wave ${this.currentWave} - Enemies: ${this.enemiesRemaining}`;
+            
+            // Show timer if wave is active
+            if (this.waveTimerActive) {
+                this.timerContainer.style.display = 'block';
+                const timeRemaining = Math.ceil(this.waveTimer / 1000);
+                this.timerContainer.textContent = `Wave time left: ${timeRemaining}s`;
+                
+                // Change color to red when less than 10 seconds remain
+                if (timeRemaining <= 10) {
+                    this.timerContainer.style.color = '#ff5555';
+                } else {
+                    this.timerContainer.style.color = 'white';
+                }
+            } else {
+                this.timerContainer.style.display = 'none';
+            }
         } else if (this.currentWave === 0) {
             this.waveContainer.textContent = 'Press "Space" to Start';
+            this.timerContainer.style.display = 'none';
         } else {
-            this.waveContainer.textContent = `Wave ${this.currentWave} Complete! Next wave in ${Math.ceil(this.waveCountdown / 1000)}s`;
+            // For wave complete, don't mention countdown since it's immediate
+            this.waveContainer.textContent = `Wave ${this.currentWave} Complete!`;
+            this.timerContainer.style.display = 'none';
         }
     }
     
@@ -92,6 +132,10 @@ export class WaveManager {
             clearTimeout(this.waveTimeout);
             this.waveTimeout = null;
         }
+        
+        // Reset and start wave timer
+        this.waveTimer = this.waveTimerDuration;
+        this.waveTimerActive = true;
         
         // Spawn enemies
         this.spawnEnemies(numEnemies);
@@ -301,8 +345,32 @@ export class WaveManager {
             }
         }
         
-        // Check if wave is complete
+        // Update wave timer if active
+        if (this.waveActive && this.waveTimerActive) {
+            this.waveTimer -= deltaTime;
+            
+            // Update timer display every second
+            if (Math.floor(this.waveTimer / 1000) !== Math.floor((this.waveTimer + deltaTime) / 1000)) {
+                this.updateWaveDisplay();
+            }
+            
+            // Force next wave if timer expires
+            if (this.waveTimer <= 0) {
+                this.waveTimerActive = false;
+                this.timerContainer.style.display = 'none';
+                
+                // Show timer expired notification
+                this.showTimerExpiredNotification();
+                
+                // Force wave completion
+                this.waveComplete();
+            }
+        }
+        
+        // Check if wave is complete (all enemies defeated)
         if (this.waveActive && this.enemiesRemaining <= 0 && this.enemies.length === 0) {
+            this.waveTimerActive = false;
+            this.timerContainer.style.display = 'none';
             this.waveComplete();
         }
         
@@ -320,8 +388,36 @@ export class WaveManager {
         }
     }
     
+    showTimerExpiredNotification() {
+        // Create timer expired notification
+        const notification = document.createElement('div');
+        notification.textContent = "Time's up! Next wave incoming...";
+        notification.style.position = 'absolute';
+        notification.style.top = '40%';
+        notification.style.left = '50%';
+        notification.style.transform = 'translate(-50%, -50%)';
+        notification.style.color = '#ff5555';
+        notification.style.fontFamily = 'Arial, sans-serif';
+        notification.style.fontSize = '32px';
+        notification.style.fontWeight = 'bold';
+        notification.style.textShadow = '2px 2px 4px rgba(0, 0, 0, 0.7)';
+        notification.style.zIndex = '200';
+        notification.style.opacity = '1';
+        notification.style.transition = 'opacity 1s';
+        document.body.appendChild(notification);
+        
+        // Fade out and remove
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            setTimeout(() => {
+                document.body.removeChild(notification);
+            }, 1000);
+        }, 2000);
+    }
+    
     waveComplete() {
         this.waveActive = false;
+        this.waveTimerActive = false;
         this.waveCountdown = this.timeBetweenWaves;
         
         // Update display
@@ -343,6 +439,7 @@ export class WaveManager {
         this.currentWave = 0;
         this.enemiesRemaining = 0;
         this.waveActive = false;
+        this.waveTimerActive = false;
         
         if (this.waveTimeout) {
             clearTimeout(this.waveTimeout);

@@ -187,6 +187,9 @@ class Game {
     gameOver() {
         this.isGameOver = true;
         
+        // Dispose of gameplay resources
+        this.disposeGameResources();
+        
         // Create game over UI
         const gameOverContainer = document.createElement('div');
         gameOverContainer.style.position = 'absolute';
@@ -246,6 +249,30 @@ class Game {
             location.reload();
         });
         gameOverContainer.appendChild(restartBtn);
+    }
+    
+    disposeGameResources() {
+        // Clean up any active intervals or timeouts
+        if (this.player.healthRegenInterval) {
+            clearInterval(this.player.healthRegenInterval);
+        }
+        
+        // Clean up any projectiles
+        for (const projectile of this.player.projectiles) {
+            projectile.deactivate();
+        }
+        this.player.projectiles = [];
+        
+        // Clean up wave manager
+        for (const enemy of this.waveManager.enemies) {
+            // For ranged enemies, clean up their projectiles
+            if (enemy.projectiles) {
+                for (const projectile of enemy.projectiles) {
+                    projectile.deactivate();
+                }
+                enemy.projectiles = [];
+            }
+        }
     }
 }
 

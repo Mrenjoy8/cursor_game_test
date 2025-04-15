@@ -267,12 +267,20 @@ export class Player {
     
     createAndAddProjectile(direction) {
         // Create projectile at player position
+        const position = this.mesh.position.clone();
+        position.y = 1.0; // Shoot from player's "hands"
+        
         const projectile = new Projectile(
             this.scene,
-            this.mesh.position.clone(),
+            position,
             direction,
-            this.attackDamage,
-            this.projectileSpeed
+            this.projectileSpeed * 0.7,  // Reduce speed by 30%
+            0.35,                        // Increase size from 0.2 to 0.35
+            this.attackDamage,           // damage
+            0x00aaff,                    // color (blue)
+            true,                        // isFromPlayer
+            null,                        // target
+            1800                         // increase lifetime to compensate for slower speed
         );
         
         // Add to projectiles array
@@ -281,6 +289,19 @@ export class Player {
     
     takeDamage(amount) {
         this.health -= amount;
+        
+        // Visual feedback - flash body red
+        if (this.body && this.body.material) {
+            const originalColor = this.body.material.color.clone();
+            this.body.material.color.set(0xff0000);
+            
+            setTimeout(() => {
+                if (this.body && this.body.material) {
+                    this.body.material.color.copy(originalColor);
+                }
+            }, 200);
+        }
+        
         if (this.health <= 0) {
             this.health = 0;
             // Call game over function

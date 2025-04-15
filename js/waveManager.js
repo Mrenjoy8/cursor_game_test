@@ -1,5 +1,5 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.module.js';
-import { Enemy } from './enemy.js';
+import { Enemy, BaseEnemy, BasicEnemy, FastEnemy, TankyEnemy, RangedEnemy, EnemyType, enemyPool } from './enemy.js';
 
 export class WaveManager {
     constructor(scene, player) {
@@ -12,6 +12,17 @@ export class WaveManager {
         this.waveActive = false;
         this.timeBetweenWaves = 5000; // 5 seconds between waves
         this.waveTimeout = null;
+        
+        // Store percentages of enemy types by wave
+        this.enemyDistribution = {
+            basic: { min: 100, max: 30 },    // Starts at 100%, decreases to 30%
+            fast: { min: 0, max: 30 },       // Starts at 0%, increases to 30%
+            tanky: { min: 0, max: 20 },      // Starts at 0%, increases to 20%
+            ranged: { min: 0, max: 20 }      // Starts at 0%, increases to 20%
+        };
+        
+        // Maximum number of enemies to spawn (increases with wave)
+        this.maxEnemies = 30;
         
         // Create wave display
         this.createWaveDisplay();
@@ -73,7 +84,7 @@ export class WaveManager {
         this.waveActive = true;
         
         // Calculate enemies for this wave
-        const numEnemies = Math.min(5 + (this.currentWave - 1) * 2, 30); // Cap at 30 enemies
+        const numEnemies = Math.min(5 + (this.currentWave - 1) * 2, this.maxEnemies);
         this.enemiesRemaining = numEnemies;
         
         // Clear any existing countdown
@@ -119,6 +130,61 @@ export class WaveManager {
         }, 2000);
     }
     
+    getEnemyTypeDistribution() {
+        // Calculate the percentage of each enemy type for the current wave
+        // The higher the wave, the more advanced enemy types appear
+        const waveProgress = Math.min(this.currentWave / 10, 1); // Cap at wave 10 for max diversity
+        
+        // Calculate percentages of each enemy type based on wave progress
+        const distribution = {};
+        
+        // For each enemy type, linearly interpolate from min to max percentage based on wave progress
+        for (const [type, { min, max }] of Object.entries(this.enemyDistribution)) {
+            distribution[type] = Math.round(min + (max - min) * waveProgress);
+        }
+        
+        return distribution;
+    }
+    
+    getRandomEnemyType() {
+        // Get current distribution of enemy types
+        const distribution = this.getEnemyTypeDistribution();
+        
+        // Convert percentages to ranges for random selection
+        const ranges = [];
+        let currentTotal = 0;
+        
+        for (const [type, percentage] of Object.entries(distribution)) {
+            if (percentage > 0) {
+                ranges.push({
+                    type: type,
+                    min: currentTotal,
+                    max: currentTotal + percentage
+                });
+                currentTotal += percentage;
+            }
+        }
+        
+        // Get random number within the total range
+        const random = Math.floor(Math.random() * 100);
+        
+        // Find which enemy type the random number falls into
+        for (const range of ranges) {
+            if (random >= range.min && random < range.max) {
+                switch (range.type) {
+                    case 'basic': return EnemyType.BASIC;
+                    case 'fast': return EnemyType.FAST;
+                    case 'tanky': return EnemyType.TANKY;
+                    case 'ranged': return EnemyType.RANGED;
+                    default: return EnemyType.BASIC;
+                }
+            }
+        }
+        
+        // Default to basic enemy if something goes wrong
+        return EnemyType.BASIC;
+    }
+    
     spawnEnemies(count) {
         const arenaSize = 14; // Slightly smaller than actual arena to keep enemies away from walls
         
@@ -150,24 +216,47 @@ export class WaveManager {
                         break;
                 }
                 
+                // Ensure y position is always at ground level (0)
                 const position = new THREE.Vector3(x, 0, z);
                 
-                // Create enemy
-                const enemy = new Enemy(this.scene, position, this.player);
+                // Determine enemy type based on wave progress
+                const enemyType = this.getRandomEnemyType();
+                
+                // Get enemy from pool (or create new if none available)
+                const enemy = enemyPool.get(enemyType, this.scene, position, this.player);
+                
+                // Ensure enemy is properly positioned at ground level based on its mesh type
+                switch(enemy.type) {
+                    case EnemyType.BASIC:
+                        enemy.mesh.position.y = 0.75; // Half height for cone
+                        break;
+                    case EnemyType.FAST:
+                        enemy.mesh.position.y = 0.4; // Half height for cube
+                        break;
+                    case EnemyType.TANKY:
+                        enemy.mesh.position.y = 0.9; // Half height for cylinder
+                        break;
+                    case EnemyType.RANGED:
+                        enemy.mesh.position.y = 0.5; // Half height for sphere
+                        break;
+                    default:
+                        enemy.mesh.position.y = 0.75;
+                }
+                
                 this.enemies.push(enemy);
                 
                 // Create spawn effect
-                this.createSpawnEffect(position);
+                this.createSpawnEffect(position, enemy.defaultColor);
                 
             }, i * 500); // Spawn an enemy every half second
         }
     }
     
-    createSpawnEffect(position) {
+    createSpawnEffect(position, color = 0xff0000) {
         // Create a simple spawn effect (expanding ring)
         const geometry = new THREE.RingGeometry(0, 1, 32);
         const material = new THREE.MeshBasicMaterial({ 
-            color: 0xff0000,
+            color: color,
             transparent: true,
             opacity: 0.7,
             side: THREE.DoubleSide

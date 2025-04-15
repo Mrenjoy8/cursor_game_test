@@ -54,3 +54,8 @@ This project is being developed in phases:
 
 - Three.js - 3D rendering
 - JavaScript (ES6+) 
+
+// Create different enemy types with unique attributes:
+// 1. Fast but weak enemies
+// 2. Slow but tanky enemies 
+// 3. Ranged enemies that attack from a distance 

@@ -1,7 +1,18 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.module.js';
 
 export class Projectile {
-    constructor(scene, position, direction, damage = 10, speed = 0.3, lifetime = 1500) {
+    constructor(
+        scene, 
+        position, 
+        direction, 
+        speed = 0.3, 
+        size = 0.2, 
+        damage = 10, 
+        color = 0x00aaff, 
+        isFromPlayer = true, 
+        target = null, 
+        lifetime = 1500
+    ) {
         this.scene = scene;
         this.direction = direction.clone().normalize();
         this.speed = speed;
@@ -9,34 +20,37 @@ export class Projectile {
         this.isActive = true;
         this.lifetime = lifetime;
         this.creationTime = Date.now();
+        this.isFromPlayer = isFromPlayer;
+        this.target = target;
+        this.size = size;
+        this.color = color;
         
         // Create projectile mesh
         this.createProjectileMesh(position);
     }
     
     createProjectileMesh(position) {
-        // Create a simple projectile (blue sphere)
-        const geometry = new THREE.SphereGeometry(0.2, 8, 8);
+        // Create a projectile with custom size and color
+        const geometry = new THREE.SphereGeometry(this.size, 8, 8);
         const material = new THREE.MeshBasicMaterial({ 
-            color: 0x00aaff,
+            color: this.color,
             transparent: true,
-            opacity: 0.8
+            opacity: 0.9
         });
         
         this.mesh = new THREE.Mesh(geometry, material);
         this.mesh.position.copy(position);
-        this.mesh.position.y = 1.0; // Adjust height to shoot from player's "hands"
         
-        // Add glowing effect
-        const glow = new THREE.PointLight(0x00aaff, 1, 3);
+        // Add stronger glowing effect
+        const glow = new THREE.PointLight(this.color, 1.5, this.size * 20);
         this.mesh.add(glow);
         
         // Add to scene
         this.scene.add(this.mesh);
         
-        // Add trail effect
+        // Add trail effect with longer trail
         this.trail = [];
-        this.maxTrailLength = 5;
+        this.maxTrailLength = 8; // Increase trail length
     }
     
     update(deltaTime) {
@@ -71,11 +85,11 @@ export class Projectile {
     
     updateTrail() {
         // Create new trail segment
-        const geometry = new THREE.SphereGeometry(0.1, 6, 6);
+        const geometry = new THREE.SphereGeometry(this.size * 0.7, 6, 6);
         const material = new THREE.MeshBasicMaterial({ 
-            color: 0x00aaff,
+            color: this.color,
             transparent: true,
-            opacity: 0.5
+            opacity: 0.7
         });
         
         const trailSegment = new THREE.Mesh(geometry, material);
@@ -96,26 +110,45 @@ export class Projectile {
             oldestSegment.mesh.material.dispose();
         }
         
-        // Fade trail segments
+        // Fade trail segments with better visual effect
         this.trail.forEach((segment, index) => {
             const age = Date.now() - segment.creationTime;
-            const opacity = 0.5 * (1 - (index / this.maxTrailLength));
+            const opacity = 0.7 * (1 - (index / this.maxTrailLength));
             segment.mesh.material.opacity = opacity;
             
             // Scale down as they age
-            const scale = 1 - (index / this.maxTrailLength) * 0.5;
+            const scale = 1 - (index / this.maxTrailLength) * 0.7;
             segment.mesh.scale.set(scale, scale, scale);
         });
     }
     
+    // Check collision with an enemy (for player projectiles)
     checkCollision(enemy) {
-        if (!this.isActive || !enemy.isAlive) return false;
+        if (!this.isActive || !enemy.isAlive || !this.isFromPlayer) return false;
         
         // Simple sphere collision
         const distance = this.mesh.position.distanceTo(enemy.getPosition());
-        if (distance < 0.7) { // Projectile radius + enemy radius
+        const collisionRadius = this.size + 0.5; // Projectile size + enemy radius
+        if (distance < collisionRadius) {
             // Hit enemy
             enemy.takeDamage(this.damage);
+            this.deactivate();
+            return true;
+        }
+        
+        return false;
+    }
+    
+    // Check collision with player (for enemy projectiles)
+    checkPlayerCollision(player) {
+        if (!this.isActive || this.isFromPlayer) return false;
+        
+        // Simple sphere collision
+        const distance = this.mesh.position.distanceTo(player.getPosition());
+        const collisionRadius = this.size + 0.5; // Projectile size + player radius
+        if (distance < collisionRadius) {
+            // Hit player
+            player.takeDamage(this.damage);
             this.deactivate();
             return true;
         }
@@ -134,17 +167,22 @@ export class Projectile {
     }
     
     createHitEffect() {
-        // Create a quick expanding and fading sphere at the current position
-        const geometry = new THREE.SphereGeometry(0.1, 8, 8);
+        // Create a more dramatic expanding and fading sphere at the current position
+        const geometry = new THREE.SphereGeometry(this.size * 1.5, 8, 8);
         const material = new THREE.MeshBasicMaterial({ 
-            color: 0x00aaff,
+            color: this.color,
             transparent: true,
-            opacity: 0.8
+            opacity: 0.9
         });
         
         const hitEffect = new THREE.Mesh(geometry, material);
         hitEffect.position.copy(this.mesh.position);
         this.scene.add(hitEffect);
+        
+        // Add a flash of light at impact
+        const light = new THREE.PointLight(this.color, 1, this.size * 10);
+        light.position.copy(this.mesh.position);
+        this.scene.add(light);
         
         // Animate and remove
         let scale = 1;
@@ -156,6 +194,7 @@ export class Projectile {
             if (material.opacity <= 0) {
                 clearInterval(expandInterval);
                 this.scene.remove(hitEffect);
+                this.scene.remove(light);
                 geometry.dispose();
                 material.dispose();
             }

@@ -1,0 +1,31 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+specific implementation advice when working with Three.js for this project:
+
+Structure: Consider using a component-based architecture to organize your code, which works well with Three.js and makes it easier to manage complexity as your game grows.
+
+
+-Performance: For wave-based combat with many enemies, look into:
+Object pooling for enemies and projectiles
+Instanced mesh rendering for similar enemies
+Lowering polygon count for distant enemies
+
+
+Physics: Three.js doesn't have built-in physics, so you'll need to:
+
+Implement simple collision detection yourself
+For this game type, simple collision spheres might be sufficient
+
+
+Assets: Consider using:
+
+Free 3D models from sites like Sketchfab for initial development
+Simple procedurally generated assets
+Low-poly art style for better performance
+
+
+Starting small: Begin with one enemy type, one player skill, and build from there. Get the core loop working before expanding.

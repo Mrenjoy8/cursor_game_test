@@ -20,7 +20,7 @@ export class Player {
         };
         
         // Attack properties
-        this.attackRange = 10;
+        this.attackRange = 15;
         this.attackSpeed = 1000; // ms between attacks
         this.lastAttackTime = 0;
         this.attackDamage = 10;
@@ -159,8 +159,8 @@ export class Player {
             }
         }
         
-        // Arena boundary collision (assuming 30x30 arena with walls at ±15)
-        const arenaSize = 15;
+        // Arena boundary collision (assuming 60x60 arena with walls at ±30)
+        const arenaSize = 30;
         const playerRadius = 0.5;
         
         if (this.mesh.position.x < -arenaSize + playerRadius) {
@@ -280,7 +280,7 @@ export class Player {
             0x00aaff,                    // color (blue)
             true,                        // isFromPlayer
             null,                        // target
-            1800                         // increase lifetime to compensate for slower speed
+            3600                         // doubled lifetime for doubled arena size
         );
         
         // Add to projectiles array

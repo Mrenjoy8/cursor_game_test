@@ -71,8 +71,8 @@ export class Projectile {
         // Update trail
         this.updateTrail();
         
-        // Check boundaries (30x30 arena)
-        const arenaSize = 15;
+        // Check boundaries (60x60 arena)
+        const arenaSize = 30;
         if (
             this.mesh.position.x < -arenaSize || 
             this.mesh.position.x > arenaSize || 

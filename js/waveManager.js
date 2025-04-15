@@ -186,7 +186,7 @@ export class WaveManager {
     }
     
     spawnEnemies(count) {
-        const arenaSize = 14; // Slightly smaller than actual arena to keep enemies away from walls
+        const arenaSize = 28; // Slightly smaller than actual arena (30) to keep enemies away from walls
         
         for (let i = 0; i < count; i++) {
             // Delay spawning each enemy to prevent all appearing at once

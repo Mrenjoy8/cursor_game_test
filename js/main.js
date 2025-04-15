@@ -86,9 +86,9 @@ class Game {
         directionalLight.shadow.mapSize.width = 2048;
         directionalLight.shadow.mapSize.height = 2048;
         directionalLight.shadow.camera.near = 0.5;
-        directionalLight.shadow.camera.far = 50;
+        directionalLight.shadow.camera.far = 100;
         
-        const d = 15;
+        const d = 30;
         directionalLight.shadow.camera.left = -d;
         directionalLight.shadow.camera.right = d;
         directionalLight.shadow.camera.top = d;
@@ -99,7 +99,7 @@ class Game {
     
     createArena() {
         // Floor
-        const floorGeometry = new THREE.PlaneGeometry(30, 30);
+        const floorGeometry = new THREE.PlaneGeometry(60, 60);
         const floorMaterial = new THREE.MeshStandardMaterial({ 
             color: 0x555555,
             roughness: 0.8
@@ -112,45 +112,47 @@ class Game {
         // Arena walls
         const wallMaterial = new THREE.MeshStandardMaterial({ 
             color: 0x777777,
-            roughness: 0.7 
+            roughness: 0.7,
+            transparent: true,
+            opacity: 0.5
         });
         
         // North wall
         const northWall = new THREE.Mesh(
-            new THREE.BoxGeometry(30, 3, 1),
+            new THREE.BoxGeometry(60, 3, 1),
             wallMaterial
         );
-        northWall.position.set(0, 1.5, -15);
+        northWall.position.set(0, 1.5, -30);
         northWall.castShadow = true;
         northWall.receiveShadow = true;
         this.scene.add(northWall);
         
         // South wall
         const southWall = new THREE.Mesh(
-            new THREE.BoxGeometry(30, 3, 1),
+            new THREE.BoxGeometry(60, 3, 1),
             wallMaterial
         );
-        southWall.position.set(0, 1.5, 15);
+        southWall.position.set(0, 1.5, 30);
         southWall.castShadow = true;
         southWall.receiveShadow = true;
         this.scene.add(southWall);
         
         // East wall
         const eastWall = new THREE.Mesh(
-            new THREE.BoxGeometry(1, 3, 30),
+            new THREE.BoxGeometry(1, 3, 60),
             wallMaterial
         );
-        eastWall.position.set(15, 1.5, 0);
+        eastWall.position.set(30, 1.5, 0);
         eastWall.castShadow = true;
         eastWall.receiveShadow = true;
         this.scene.add(eastWall);
         
         // West wall
         const westWall = new THREE.Mesh(
-            new THREE.BoxGeometry(1, 3, 30),
+            new THREE.BoxGeometry(1, 3, 60),
             wallMaterial
         );
-        westWall.position.set(-15, 1.5, 0);
+        westWall.position.set(-30, 1.5, 0);
         westWall.castShadow = true;
         westWall.receiveShadow = true;
         this.scene.add(westWall);

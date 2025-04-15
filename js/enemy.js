@@ -420,8 +420,8 @@ export class RangedEnemy extends BaseEnemy {
         this.moveSpeed = 0.012;
         this.experienceValue = 25;
         this.attackCooldown = 2000; // Slower attacks
-        this.attackRange = 8; // Much longer attack range
-        this.preferredDistance = 6; // Will try to maintain this distance
+        this.attackRange = 16; // Doubled attack range for larger arena
+        this.preferredDistance = 12; // Doubled preferred distance for larger arena
         this.type = EnemyType.RANGED;
         this.defaultColor = 0x9b59b6; // Purple
         this.projectiles = [];
@@ -526,7 +526,8 @@ export class RangedEnemy extends BaseEnemy {
             this.damage,
             0xff3333,      // Bright red color for enemy projectiles
             false,         // Not from player
-            this.player    // Target (for collision)
+            this.player,   // Target (for collision)
+            3000           // Increased lifetime for larger arena
         );
         
         this.projectiles.push(projectile);

@@ -8,11 +8,12 @@ export class CameraController {
         // Camera parameters
         this.distance = 10; // Distance from player
         this.height = 5; // Height above player
-        this.rotationSpeed = 0.002;
+        this.rotationSpeed = 0.003;
         this.smoothFactor = 0.1; // Lower for smoother camera, higher for more responsive
         
         // Current camera values
-        this.currentRotation = 0;
+        this.currentRotationX = 0;
+        this.currentRotationY = 0;
         this.targetPosition = new THREE.Vector3();
         this.cameraPosition = new THREE.Vector3();
         
@@ -46,11 +47,16 @@ export class CameraController {
         document.addEventListener('mousemove', (event) => {
             if (this.mouseDown) {
                 const deltaX = event.clientX - this.mouseX;
+                const deltaY = event.clientY - this.mouseY;
                 this.mouseX = event.clientX;
                 this.mouseY = event.clientY;
                 
                 // Rotate camera based on mouse movement
-                this.currentRotation -= deltaX * this.rotationSpeed;
+                this.currentRotationX -= deltaX * this.rotationSpeed;
+                this.currentRotationY -= deltaY * this.rotationSpeed;
+                
+                // Clamp vertical rotation to prevent camera flipping
+                this.currentRotationY = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, this.currentRotationY));
             }
         });
         
@@ -66,11 +72,13 @@ export class CameraController {
         // Get the target's position
         const targetPosition = this.target.getPosition();
         
-        // Calculate ideal camera position
+        // Calculate ideal camera position using spherical coordinates
+        const horizontalDistance = Math.cos(this.currentRotationY) * this.distance;
+        
         const idealOffset = new THREE.Vector3(
-            Math.sin(this.currentRotation) * this.distance,
-            this.height,
-            Math.cos(this.currentRotation) * this.distance
+            Math.sin(this.currentRotationX) * horizontalDistance,
+            Math.sin(this.currentRotationY) * this.distance + this.height,
+            Math.cos(this.currentRotationX) * horizontalDistance
         );
         
         // Add offset to target position

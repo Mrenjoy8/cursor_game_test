@@ -44,7 +44,7 @@ This project is being developed in phases:
 3. Combat System - Basics ✓
 4. Wave System ✓
 5. Progression & Skills ✓
-6. Enemy Variety
+6. Enemy Variety ✓
 7. Game Loop & UI ✓
 8. Audio & Visual Polish
 9. Optimization & Testing

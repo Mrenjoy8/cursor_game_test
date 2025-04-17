@@ -49,11 +49,17 @@ class Game {
         this.waveManager = new WaveManager(this.scene, this.player);
         this.waveManager.initialize();
         
+        // Store reference to waveManager in scene for components to access
+        this.scene.waveManager = this.waveManager;
+        
         // Set up UI
         this.ui = new UI(this.player);
         
         // Set up skill system
         this.skillSystem = new SkillSystem(this.player, this);
+        
+        // Add debugging hooks for boss waves
+        this.setupBossWaveDebugging();
         
         // Set up event listeners
         this.setupEventListeners();
@@ -65,11 +71,48 @@ class Game {
         this.animate(0);
     }
     
+    setupBossWaveDebugging() {
+        // For easy debugging in console
+        window.game = this;
+        
+        // Debug log when a wave starts
+        const originalStartNextWave = this.waveManager.startNextWave;
+        this.waveManager.startNextWave = () => {
+            originalStartNextWave.call(this.waveManager);
+            
+            const waveNum = this.waveManager.currentWave;
+            console.log(`Wave ${waveNum} started`);
+            
+            if (waveNum % this.waveManager.bossWaveFrequency === 0) {
+                console.log(`Boss wave detected: ${waveNum}`);
+            }
+        };
+        
+        // Debug log for boss spawn
+        const originalSpawnBoss = this.waveManager.spawnBoss;
+        this.waveManager.spawnBoss = () => {
+            console.log("Boss spawn initiated");
+            originalSpawnBoss.call(this.waveManager);
+        };
+    }
+    
     setupEventListeners() {
         // Listen for player death
         document.addEventListener('playerDeath', () => {
             this.gameOver();
         });
+        
+        // Add pause functionality
+        document.addEventListener('keydown', (event) => {
+            if (event.code === 'Escape') {
+                this.togglePause();
+            }
+        });
+    }
+    
+    togglePause() {
+        this.paused = !this.paused;
+        console.log(`Game ${this.paused ? 'paused' : 'resumed'}`);
     }
     
     setupLights() {

@@ -288,25 +288,41 @@ export class Player {
     }
     
     takeDamage(amount) {
-        this.health -= amount;
-        
-        // Visual feedback - flash body red
-        if (this.body && this.body.material) {
-            const originalColor = this.body.material.color.clone();
-            this.body.material.color.set(0xff0000);
+        try {
+            // Validate the damage amount
+            if (!amount || isNaN(amount) || amount <= 0) {
+                console.warn("Invalid damage amount:", amount);
+                return;
+            }
             
-            setTimeout(() => {
-                if (this.body && this.body.material) {
-                    this.body.material.color.copy(originalColor);
-                }
-            }, 200);
-        }
-        
-        if (this.health <= 0) {
-            this.health = 0;
-            // Call game over function
-            const event = new CustomEvent('playerDeath');
-            document.dispatchEvent(event);
+            console.log(`Player taking ${amount} damage. Health before: ${this.health}`);
+            
+            this.health -= amount;
+            
+            // Visual feedback - flash body red
+            if (this.body && this.body.material) {
+                const originalColor = this.body.material.color.clone();
+                this.body.material.color.set(0xff0000);
+                
+                setTimeout(() => {
+                    if (this.body && this.body.material) {
+                        this.body.material.color.copy(originalColor);
+                    }
+                }, 200);
+            }
+            
+            // Log health after taking damage
+            console.log(`Player health after damage: ${this.health}/${this.maxHealth}`);
+            
+            if (this.health <= 0) {
+                this.health = 0;
+                console.log("Player died!");
+                // Call game over function
+                const event = new CustomEvent('playerDeath');
+                document.dispatchEvent(event);
+            }
+        } catch (error) {
+            console.error("Error in player takeDamage:", error);
         }
     }
     

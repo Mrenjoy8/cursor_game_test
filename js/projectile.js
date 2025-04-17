@@ -124,19 +124,48 @@ export class Projectile {
     
     // Check collision with an enemy (for player projectiles)
     checkCollision(enemy) {
-        if (!this.isActive || !enemy.isAlive || !this.isFromPlayer) return false;
-        
-        // Simple sphere collision
-        const distance = this.mesh.position.distanceTo(enemy.getPosition());
-        const collisionRadius = this.size + 0.5; // Projectile size + enemy radius
-        if (distance < collisionRadius) {
-            // Hit enemy
-            enemy.takeDamage(this.damage);
-            this.deactivate();
-            return true;
+        try {
+            if (!this.isActive || !enemy || !enemy.isAlive) return false;
+            if (!this.isFromPlayer) return false;
+            
+            // Safety check to ensure both objects have valid positions
+            if (!this.mesh || !this.mesh.position) return false;
+            
+            const enemyPosition = enemy.getPosition();
+            if (!enemyPosition || !isFinite(enemyPosition.x) || !isFinite(enemyPosition.y) || !isFinite(enemyPosition.z)) {
+                console.warn("Enemy has invalid position:", enemy.type);
+                return false;
+            }
+            
+            // Get collision radius, handling boss enemies specially
+            let enemyRadius = 0.5; // Default radius for standard enemies
+            
+            // Check if enemy has a collisionRadius getter or is a boss
+            if (typeof enemy.collisionRadius !== 'undefined') {
+                enemyRadius = enemy.collisionRadius;
+            } else if (enemy.type === 'boss') {
+                enemyRadius = enemy.size || 1.5; // Use boss size or default to 1.5
+            }
+            
+            // Simple sphere collision
+            const distance = this.mesh.position.distanceTo(enemyPosition);
+            const collisionRadius = this.size + enemyRadius;
+            
+            if (distance < collisionRadius) {
+                // Debug log
+                console.log(`Projectile hit ${enemy.type} for ${this.damage} damage`);
+                
+                // Hit enemy
+                enemy.takeDamage(this.damage);
+                this.deactivate();
+                return true;
+            }
+            
+            return false;
+        } catch (error) {
+            console.error("Error in projectile collision check:", error);
+            return false;
         }
-        
-        return false;
     }
     
     // Check collision with player (for enemy projectiles)

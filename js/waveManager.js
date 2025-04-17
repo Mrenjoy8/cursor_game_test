@@ -1,10 +1,14 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.module.js';
 import { Enemy, BaseEnemy, BasicEnemy, FastEnemy, TankyEnemy, RangedEnemy, EnemyType, enemyPool } from './enemy.js';
+import { BossEnemy } from './bossEnemy.js';
 
 export class WaveManager {
     constructor(scene, player) {
         this.scene = scene;
         this.player = player;
+        
+        // Add reference to this WaveManager in the scene for the boss to access
+        this.scene.waveManager = this;
         
         this.currentWave = 0;
         this.enemiesRemaining = 0;
@@ -17,6 +21,11 @@ export class WaveManager {
         this.waveTimerDuration = 60000; // 60 seconds per wave
         this.waveTimer = 0;
         this.waveTimerActive = false;
+        
+        // Boss wave properties
+        this.bossWaveFrequency = 5; // Boss appears every 5 waves
+        this.currentBoss = null;
+        this.isBossWave = false;
         
         // Store percentages of enemy types by wave
         this.enemyDistribution = {
@@ -72,7 +81,14 @@ export class WaveManager {
     
     updateWaveDisplay() {
         if (this.waveActive) {
-            this.waveContainer.textContent = `Wave ${this.currentWave} - Enemies: ${this.enemiesRemaining}`;
+            if (this.isBossWave && this.currentBoss) {
+                // Show boss health and wave info
+                this.waveContainer.textContent = `BOSS WAVE ${this.currentWave} - Health: ${this.currentBoss.health}`;
+                this.waveContainer.style.color = '#ff5555';
+            } else {
+                this.waveContainer.textContent = `Wave ${this.currentWave} - Enemies: ${this.enemiesRemaining}`;
+                this.waveContainer.style.color = 'white';
+            }
             
             // Show timer if wave is active
             if (this.waveTimerActive) {
@@ -91,10 +107,12 @@ export class WaveManager {
             }
         } else if (this.currentWave === 0) {
             this.waveContainer.textContent = 'Press "Space" to Start';
+            this.waveContainer.style.color = 'white';
             this.timerContainer.style.display = 'none';
         } else {
             // For wave complete, don't mention countdown since it's immediate
             this.waveContainer.textContent = `Wave ${this.currentWave} Complete!`;
+            this.waveContainer.style.color = 'white';
             this.timerContainer.style.display = 'none';
         }
     }
@@ -123,28 +141,56 @@ export class WaveManager {
         this.currentWave++;
         this.waveActive = true;
         
-        // Calculate enemies for this wave
-        const numEnemies = Math.min(5 + (this.currentWave - 1) * 2, this.maxEnemies);
-        this.enemiesRemaining = numEnemies;
+        // Check if this is a boss wave (every 5th wave)
+        this.isBossWave = this.currentWave % this.bossWaveFrequency === 0;
         
-        // Clear any existing countdown
-        if (this.waveTimeout) {
-            clearTimeout(this.waveTimeout);
-            this.waveTimeout = null;
+        if (this.isBossWave) {
+            // Boss wave
+            this.enemiesRemaining = 1; // Just the boss
+            
+            // Clear any existing countdown
+            if (this.waveTimeout) {
+                clearTimeout(this.waveTimeout);
+                this.waveTimeout = null;
+            }
+            
+            // Reset and start wave timer - give more time for boss fights
+            this.waveTimer = this.waveTimerDuration * 1.5; // 90 seconds for boss fights
+            this.waveTimerActive = true;
+            
+            // Spawn boss
+            this.spawnBoss();
+            
+            // Update display
+            this.updateWaveDisplay();
+            
+            // Show boss wave notification
+            this.showBossWaveNotification();
+        } else {
+            // Regular wave
+            // Calculate enemies for this wave
+            const numEnemies = Math.min(5 + (this.currentWave - 1) * 2, this.maxEnemies);
+            this.enemiesRemaining = numEnemies;
+            
+            // Clear any existing countdown
+            if (this.waveTimeout) {
+                clearTimeout(this.waveTimeout);
+                this.waveTimeout = null;
+            }
+            
+            // Reset and start wave timer
+            this.waveTimer = this.waveTimerDuration;
+            this.waveTimerActive = true;
+            
+            // Spawn enemies
+            this.spawnEnemies(numEnemies);
+            
+            // Update display
+            this.updateWaveDisplay();
+            
+            // Show wave notification
+            this.showWaveNotification();
         }
-        
-        // Reset and start wave timer
-        this.waveTimer = this.waveTimerDuration;
-        this.waveTimerActive = true;
-        
-        // Spawn enemies
-        this.spawnEnemies(numEnemies);
-        
-        // Update display
-        this.updateWaveDisplay();
-        
-        // Show wave notification
-        this.showWaveNotification();
     }
     
     showWaveNotification() {
@@ -329,62 +375,263 @@ export class WaveManager {
         }, 50);
     }
     
+    spawnBoss() {
+        // Determine boss level (increases with wave number)
+        const bossLevel = Math.ceil(this.currentWave / this.bossWaveFrequency);
+        
+        // Define spawn position (center of the arena)
+        const position = new THREE.Vector3(0, 0, 0);
+        
+        // Create a spectacular spawn effect for the boss
+        this.createBossSpawnEffect(position);
+        
+        // Delay the actual spawn to allow the effect to play
+        setTimeout(() => {
+            if (!this.waveActive) return; // Don't spawn if wave is no longer active
+            
+            // Create the boss
+            this.currentBoss = new BossEnemy(this.scene, position, this.player, bossLevel);
+            
+            // Ensure boss is properly visible and active
+            this.currentBoss.isAlive = true;
+            if (this.currentBoss.mesh) {
+                this.currentBoss.mesh.visible = true;
+            }
+            
+            // Add to enemies array
+            this.enemies.push(this.currentBoss);
+            
+            // Log for debugging
+            console.log(`Boss spawned: Level ${bossLevel}, Health: ${this.currentBoss.health}`);
+        }, 2000); // 2 second delay for dramatic effect
+    }
+    
+    createBossSpawnEffect(position) {
+        // Create a more impressive spawn effect for bosses
+        
+        // Large expanding ring
+        const ringGeometry = new THREE.RingGeometry(0, 5, 32);
+        const ringMaterial = new THREE.MeshBasicMaterial({ 
+            color: 0xff0000,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.7
+        });
+        
+        const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+        ring.position.copy(position);
+        ring.position.y = 0.1; // Slightly above ground
+        ring.rotation.x = -Math.PI / 2; // Lay flat on the ground
+        this.scene.add(ring);
+        
+        // Lightning bolts (vertical beams)
+        const beams = [];
+        const beamGeometry = new THREE.CylinderGeometry(0.1, 0.1, 15, 8);
+        const beamMaterial = new THREE.MeshBasicMaterial({ 
+            color: 0xff9900,
+            transparent: true,
+            opacity: 0.8
+        });
+        
+        for (let i = 0; i < 5; i++) {
+            const beam = new THREE.Mesh(beamGeometry, beamMaterial);
+            
+            // Position around the spawn point
+            const angle = (i / 5) * Math.PI * 2;
+            const radius = 3;
+            beam.position.set(
+                position.x + Math.cos(angle) * radius,
+                position.y + 7.5, // Half height up
+                position.z + Math.sin(angle) * radius
+            );
+            
+            this.scene.add(beam);
+            beams.push(beam);
+        }
+        
+        // Particles
+        const particleCount = 200;
+        const particleGeometry = new THREE.BufferGeometry();
+        const particlePositions = new Float32Array(particleCount * 3);
+        const particleSizes = new Float32Array(particleCount);
+        
+        for (let i = 0; i < particleCount; i++) {
+            const i3 = i * 3;
+            // Random position in a sphere
+            const radius = 5 * Math.random();
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.random() * Math.PI;
+            
+            particlePositions[i3] = position.x + radius * Math.sin(phi) * Math.cos(theta);
+            particlePositions[i3 + 1] = position.y + radius * Math.sin(phi) * Math.sin(theta);
+            particlePositions[i3 + 2] = position.z + radius * Math.cos(phi);
+            
+            particleSizes[i] = 0.2 + Math.random() * 0.3;
+        }
+        
+        particleGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+        particleGeometry.setAttribute('size', new THREE.BufferAttribute(particleSizes, 1));
+        
+        const particleMaterial = new THREE.PointsMaterial({
+            color: 0xff5500,
+            size: 0.5,
+            transparent: true,
+            opacity: 0.8,
+            sizeAttenuation: true
+        });
+        
+        const particles = new THREE.Points(particleGeometry, particleMaterial);
+        this.scene.add(particles);
+        
+        // Animation timeline
+        let startTime = Date.now();
+        const duration = 2000; // 2 seconds
+        
+        const animate = () => {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / duration, 1.0);
+            
+            // Animate ring
+            ring.scale.setScalar(1 + progress * 2);
+            ringMaterial.opacity = 0.7 * (1 - progress);
+            
+            // Animate beams
+            beams.forEach((beam, i) => {
+                beam.scale.y = 1 - 0.5 * Math.sin((progress * 10) + i);
+                beamMaterial.opacity = 0.8 * (1 - progress);
+            });
+            
+            // Animate particles
+            particleMaterial.opacity = 0.8 * (1 - progress);
+            
+            // Continue animation if not complete
+            if (progress < 1.0) {
+                requestAnimationFrame(animate);
+            } else {
+                // Clean up when animation is complete
+                this.scene.remove(ring);
+                ringMaterial.dispose();
+                ringGeometry.dispose();
+                
+                beams.forEach(beam => {
+                    this.scene.remove(beam);
+                });
+                beamMaterial.dispose();
+                beamGeometry.dispose();
+                
+                this.scene.remove(particles);
+                particleMaterial.dispose();
+                particleGeometry.dispose();
+            }
+        };
+        
+        // Start animation
+        animate();
+    }
+    
+    showBossWaveNotification() {
+        // Create notification element with more dramatic styling
+        const notification = document.createElement('div');
+        notification.textContent = `BOSS WAVE ${this.currentWave / this.bossWaveFrequency}`;
+        notification.style.position = 'absolute';
+        notification.style.top = '50%';
+        notification.style.left = '50%';
+        notification.style.transform = 'translate(-50%, -50%)';
+        notification.style.color = '#ff3333';
+        notification.style.fontFamily = 'Arial, sans-serif';
+        notification.style.fontSize = '64px';
+        notification.style.fontWeight = 'bold';
+        notification.style.textShadow = '0 0 10px #ff0000, 0 0 20px #ff0000';
+        notification.style.zIndex = '200';
+        notification.style.opacity = '1';
+        notification.style.transition = 'opacity 1.5s';
+        document.body.appendChild(notification);
+        
+        // Add a subtitle
+        const subtitle = document.createElement('div');
+        subtitle.textContent = `Prepare for battle!`;
+        subtitle.style.position = 'absolute';
+        subtitle.style.top = 'calc(50% + 70px)';
+        subtitle.style.left = '50%';
+        subtitle.style.transform = 'translateX(-50%)';
+        subtitle.style.color = '#ffcc00';
+        subtitle.style.fontFamily = 'Arial, sans-serif';
+        subtitle.style.fontSize = '32px';
+        subtitle.style.fontWeight = 'bold';
+        subtitle.style.textShadow = '0 0 6px #ff9900, 0 0 12px #ff9900';
+        subtitle.style.zIndex = '200';
+        subtitle.style.opacity = '1';
+        subtitle.style.transition = 'opacity 1.5s';
+        document.body.appendChild(subtitle);
+        
+        // Fade out and remove
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            subtitle.style.opacity = '0';
+            setTimeout(() => {
+                document.body.removeChild(notification);
+                document.body.removeChild(subtitle);
+            }, 1500);
+        }, 2500);
+    }
+    
     update(deltaTime) {
-        // Update all enemies
+        // Update enemies
         for (let i = this.enemies.length - 1; i >= 0; i--) {
             const enemy = this.enemies[i];
             
-            if (!enemy.isAlive) {
-                // Remove dead enemies
+            if (enemy.isAlive) {
+                enemy.update(deltaTime);
+            } else {
+                // Handle enemy death
+                // Check if it was a boss
+                if (this.isBossWave && enemy === this.currentBoss) {
+                    this.currentBoss = null;
+                    // Create spectacular death effect
+                    this.createBossDeathEffect(enemy.getPosition());
+                }
+                
+                // Remove from scene and array
+                enemy.removeFromScene();
                 this.enemies.splice(i, 1);
                 this.enemiesRemaining--;
-                this.updateWaveDisplay();
-            } else {
-                // Update living enemies
-                enemy.update(deltaTime);
-            }
-        }
-        
-        // Update wave timer if active
-        if (this.waveActive && this.waveTimerActive) {
-            this.waveTimer -= deltaTime;
-            
-            // Update timer display every second
-            if (Math.floor(this.waveTimer / 1000) !== Math.floor((this.waveTimer + deltaTime) / 1000)) {
-                this.updateWaveDisplay();
-            }
-            
-            // Force next wave if timer expires
-            if (this.waveTimer <= 0) {
-                this.waveTimerActive = false;
-                this.timerContainer.style.display = 'none';
                 
-                // Show timer expired notification
-                this.showTimerExpiredNotification();
+                // Release to pool if not a boss
+                if (!this.isBossWave || enemy !== this.currentBoss) {
+                    enemyPool.release(enemy);
+                }
                 
-                // Force wave completion
-                this.waveComplete();
-            }
-        }
-        
-        // Check if wave is complete (all enemies defeated)
-        if (this.waveActive && this.enemiesRemaining <= 0 && this.enemies.length === 0) {
-            this.waveTimerActive = false;
-            this.timerContainer.style.display = 'none';
-            this.waveComplete();
-        }
-        
-        // Update wave countdown if between waves
-        if (!this.waveActive && this.currentWave > 0) {
-            this.waveCountdown -= deltaTime;
-            if (this.waveCountdown <= 0) {
-                this.startNextWave();
-            } else {
-                // Update display every second
-                if (Math.floor(this.waveCountdown / 1000) !== Math.floor((this.waveCountdown + deltaTime) / 1000)) {
-                    this.updateWaveDisplay();
+                // Check if wave is complete
+                if (this.enemiesRemaining <= 0 && this.waveActive) {
+                    this.waveComplete();
                 }
             }
+        }
+        
+        // Update wave timer
+        if (this.waveTimerActive) {
+            this.waveTimer -= deltaTime;
+            
+            if (this.waveTimer <= 0) {
+                this.waveTimerActive = false;
+                this.waveTimer = 0;
+                
+                // Handle wave timeout - different behavior for boss waves
+                if (this.isBossWave && this.currentBoss) {
+                    // If boss is still alive, make it vulnerable (half health and slower)
+                    this.currentBoss.health = Math.max(this.currentBoss.health * 0.5, 1);
+                    this.currentBoss.moveSpeed *= 0.7;
+                    this.currentBoss.flashColor(0xff00ff, 1000); // Purple flash to indicate vulnerability
+                    this.showBossVulnerableNotification();
+                } else {
+                    // For normal waves, just spawn the next wave
+                    this.showTimerExpiredNotification();
+                    this.waveComplete();
+                }
+            }
+            
+            // Update the wave display
+            this.updateWaveDisplay();
         }
     }
     
@@ -451,5 +698,234 @@ export class WaveManager {
         
         // Listen for spacebar to start again
         document.addEventListener('keydown', this.spacebarHandler);
+    }
+    
+    createBossDeathEffect(position) {
+        // Create spectacular death effect for boss
+        // Similar to spawn effect but with different colors and behavior
+        
+        // Explosion
+        const explosionGeometry = new THREE.SphereGeometry(1, 32, 32);
+        const explosionMaterial = new THREE.MeshBasicMaterial({ 
+            color: 0xffdd00,
+            transparent: true,
+            opacity: 1
+        });
+        
+        const explosion = new THREE.Mesh(explosionGeometry, explosionMaterial);
+        explosion.position.copy(position);
+        this.scene.add(explosion);
+        
+        // Shockwave ring
+        const ringGeometry = new THREE.RingGeometry(0, 2, 32);
+        const ringMaterial = new THREE.MeshBasicMaterial({ 
+            color: 0xffaa00,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.9
+        });
+        
+        const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+        ring.position.copy(position);
+        ring.position.y = 0.1; // Slightly above ground
+        ring.rotation.x = -Math.PI / 2; // Lay flat on the ground
+        this.scene.add(ring);
+        
+        // Particles
+        const particleCount = 300;
+        const particleGeometry = new THREE.BufferGeometry();
+        const particlePositions = new Float32Array(particleCount * 3);
+        const particleVelocities = new Float32Array(particleCount * 3);
+        
+        for (let i = 0; i < particleCount; i++) {
+            const i3 = i * 3;
+            // Start at boss position
+            particlePositions[i3] = position.x;
+            particlePositions[i3 + 1] = position.y;
+            particlePositions[i3 + 2] = position.z;
+            
+            // Random velocity (exploding outward)
+            const speed = 0.05 + Math.random() * 0.1;
+            const angle = Math.random() * Math.PI * 2;
+            const elevation = Math.random() * Math.PI - Math.PI/2;
+            
+            particleVelocities[i3] = Math.cos(angle) * Math.cos(elevation) * speed;
+            particleVelocities[i3 + 1] = Math.sin(elevation) * speed;
+            particleVelocities[i3 + 2] = Math.sin(angle) * Math.cos(elevation) * speed;
+        }
+        
+        particleGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+        
+        const particleMaterial = new THREE.PointsMaterial({
+            color: 0xffcc00,
+            size: 0.4,
+            transparent: true,
+            opacity: 1,
+            sizeAttenuation: true
+        });
+        
+        const particles = new THREE.Points(particleGeometry, particleMaterial);
+        this.scene.add(particles);
+        
+        // Play explosion sound
+        this.playBossDeathSound();
+        
+        // Animation timeline
+        let startTime = Date.now();
+        const duration = 2000; // 2 seconds
+        
+        const animate = () => {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / duration, 1.0);
+            
+            // Animate explosion
+            explosion.scale.setScalar(1 + progress * 6);
+            explosionMaterial.opacity = 1 * (1 - progress);
+            
+            // Animate ring
+            ring.scale.setScalar(1 + progress * 10);
+            ringMaterial.opacity = 0.9 * (1 - progress);
+            
+            // Animate particles
+            const positions = particleGeometry.attributes.position.array;
+            
+            for (let i = 0; i < particleCount; i++) {
+                const i3 = i * 3;
+                
+                // Update positions based on velocity
+                positions[i3] += particleVelocities[i3];
+                positions[i3 + 1] += particleVelocities[i3 + 1];
+                positions[i3 + 2] += particleVelocities[i3 + 2];
+                
+                // Add gravity effect
+                particleVelocities[i3 + 1] -= 0.001;
+            }
+            
+            particleGeometry.attributes.position.needsUpdate = true;
+            particleMaterial.opacity = 1 * (1 - progress);
+            
+            // Continue animation if not complete
+            if (progress < 1.0) {
+                requestAnimationFrame(animate);
+            } else {
+                // Clean up when animation is complete
+                this.scene.remove(explosion);
+                explosionMaterial.dispose();
+                explosionGeometry.dispose();
+                
+                this.scene.remove(ring);
+                ringMaterial.dispose();
+                ringGeometry.dispose();
+                
+                this.scene.remove(particles);
+                particleMaterial.dispose();
+                particleGeometry.dispose();
+                
+                // Give player a reward
+                this.givePlayerBossReward();
+            }
+        };
+        
+        // Start animation
+        animate();
+    }
+    
+    playBossDeathSound() {
+        // Create a basic explosion sound using Web Audio API
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // Create a sound with decreasing frequency
+        const oscillator = audioContext.createOscillator();
+        oscillator.type = 'sawtooth';
+        oscillator.frequency.setValueAtTime(300, audioContext.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(50, audioContext.currentTime + 1.5);
+        
+        // Add some distortion for explosion effect
+        const distortion = audioContext.createWaveShaper();
+        function makeDistortionCurve(amount) {
+            const k = amount;
+            const samples = 44100;
+            const curve = new Float32Array(samples);
+            for (let i = 0; i < samples; i++) {
+                const x = i * 2 / samples - 1;
+                curve[i] = (3 + k) * x * 20 * (Math.PI / 180) / (Math.PI + k * Math.abs(x));
+            }
+            return curve;
+        }
+        distortion.curve = makeDistortionCurve(400);
+        
+        // Volume control
+        const gainNode = audioContext.createGain();
+        gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 1.5);
+        
+        // Connect nodes
+        oscillator.connect(distortion);
+        distortion.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        // Play sound
+        oscillator.start();
+        oscillator.stop(audioContext.currentTime + 1.5);
+    }
+    
+    showBossVulnerableNotification() {
+        // Display notification that boss is now vulnerable
+        const notification = document.createElement('div');
+        notification.textContent = `Time's up! Boss is weakened!`;
+        notification.style.position = 'absolute';
+        notification.style.top = '50%';
+        notification.style.left = '50%';
+        notification.style.transform = 'translate(-50%, -50%)';
+        notification.style.color = '#ff00ff';
+        notification.style.fontFamily = 'Arial, sans-serif';
+        notification.style.fontSize = '36px';
+        notification.style.fontWeight = 'bold';
+        notification.style.textShadow = '0 0 8px #ff00ff, 0 0 16px #ff00ff';
+        notification.style.zIndex = '200';
+        notification.style.opacity = '1';
+        notification.style.transition = 'opacity 1s';
+        document.body.appendChild(notification);
+        
+        // Fade out and remove
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            setTimeout(() => {
+                document.body.removeChild(notification);
+            }, 1000);
+        }, 2000);
+    }
+    
+    givePlayerBossReward() {
+        // Calculate boss reward based on wave number
+        const experienceReward = 500 * Math.ceil(this.currentWave / this.bossWaveFrequency);
+        
+        // Give experience to player
+        this.player.addExperience(experienceReward);
+        
+        // Display reward notification
+        const notification = document.createElement('div');
+        notification.textContent = `Boss Defeated! +${experienceReward} XP`;
+        notification.style.position = 'absolute';
+        notification.style.top = '50%';
+        notification.style.left = '50%';
+        notification.style.transform = 'translate(-50%, -50%)';
+        notification.style.color = '#00ffff';
+        notification.style.fontFamily = 'Arial, sans-serif';
+        notification.style.fontSize = '36px';
+        notification.style.fontWeight = 'bold';
+        notification.style.textShadow = '0 0 8px #00ffff, 0 0 16px #00ffff';
+        notification.style.zIndex = '200';
+        notification.style.opacity = '1';
+        notification.style.transition = 'opacity 1s';
+        document.body.appendChild(notification);
+        
+        // Fade out and remove
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            setTimeout(() => {
+                document.body.removeChild(notification);
+            }, 1000);
+        }, 2000);
     }
 } 

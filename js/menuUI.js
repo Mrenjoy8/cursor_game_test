@@ -50,6 +50,10 @@ export class MenuUI {
         buttonContainer.style.flexDirection = 'column';
         buttonContainer.style.gap = '15px';
         buttonContainer.style.width = '300px';
+        buttonContainer.style.position = 'absolute';
+        buttonContainer.style.right = '40px';
+        buttonContainer.style.bottom = '40px';
+        buttonContainer.style.alignItems = 'flex-end'; // Align buttons to the right
         menu.appendChild(buttonContainer);
         
         // Start Game button
@@ -78,6 +82,7 @@ export class MenuUI {
         copyright.textContent = '© 2025 BearishAF & GRIND. All rights reserved.';
         copyright.style.position = 'absolute';
         copyright.style.bottom = '20px';
+        copyright.style.left = '20px'; // Align to the left side
         copyright.style.fontSize = '14px';
         copyright.style.color = 'var(--white)';
         copyright.style.opacity = '0.7';
@@ -148,7 +153,7 @@ export class MenuUI {
         const contentWrapper = document.createElement('div');
         contentWrapper.style.width = '100%';
         contentWrapper.style.maxWidth = '800px';
-        contentWrapper.style.margin = '0 auto';
+        contentWrapper.style.margin = '0 auto 50px';
         howToPlay.appendChild(contentWrapper);
         
         // Controls section
@@ -316,7 +321,7 @@ export class MenuUI {
         const contentWrapper = document.createElement('div');
         contentWrapper.style.width = '100%';
         contentWrapper.style.maxWidth = '1000px';
-        contentWrapper.style.margin = '0 auto';
+        contentWrapper.style.margin = '0 auto 50px';
         enemyWiki.appendChild(contentWrapper);
         
         // Regular enemies section

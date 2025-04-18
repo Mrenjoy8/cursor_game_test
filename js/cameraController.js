@@ -8,7 +8,7 @@ export class CameraController {
         // Camera parameters
         this.distance = 10; // Distance from player
         this.height = 5; // Height above player
-        this.rotationSpeed = 0.003;
+        this.rotationSpeed = 0.002;
         this.smoothFactor = 0.1; // Lower for smoother camera, higher for more responsive
         
         // Current camera values
@@ -53,7 +53,7 @@ export class CameraController {
                 
                 // Rotate camera based on mouse movement
                 this.currentRotationX -= deltaX * this.rotationSpeed;
-                this.currentRotationY -= deltaY * this.rotationSpeed;
+                this.currentRotationY += deltaY * this.rotationSpeed;
                 
                 // Clamp vertical rotation to prevent camera flipping
                 this.currentRotationY = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, this.currentRotationY));

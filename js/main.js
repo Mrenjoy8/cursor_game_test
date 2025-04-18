@@ -402,7 +402,7 @@ class Game {
         
         // Restart button
         const restartBtn = document.createElement('button');
-        restartBtn.textContent = 'RESTART';
+        restartBtn.textContent = 'EXIT';
         restartBtn.className = 'menu-button';
         restartBtn.addEventListener('click', () => {
             location.reload();

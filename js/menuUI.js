@@ -122,10 +122,8 @@ export class MenuUI {
         // Add controls
         const controls = [
             { key: 'W, A, S, D', desc: 'Move character' },
-            { key: 'MOUSE', desc: 'Aim' },
-            { key: 'LEFT CLICK', desc: 'Attack' },
-            { key: 'SPACEBAR', desc: 'Dash' },
-            { key: 'E', desc: 'Use skill' },
+            { key: 'AIM', desc: 'Auto attack the nearest enemy' },
+            { key: 'RIGHT CLICK', desc: 'Hold to drag camera view' },
             { key: 'ESC', desc: 'Pause game' }
         ];
         

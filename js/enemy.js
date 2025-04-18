@@ -161,8 +161,24 @@ export class BaseEnemy {
         }
     }
     
+    validatePosition() {
+        if (this.mesh && this.mesh.position) {
+            // Check for NaN or infinite values in position
+            if (!isFinite(this.mesh.position.x) || !isFinite(this.mesh.position.y) || !isFinite(this.mesh.position.z)) {
+                console.warn(`Invalid position detected in ${this.type} enemy. Resetting position.`);
+                // Reset to a safe position
+                this.mesh.position.set(0, 0, 0);
+                return false;
+            }
+        }
+        return true;
+    }
+    
     update(deltaTime) {
         if (!this.isAlive) return;
+        
+        // Validate position to prevent geometry errors
+        if (!this.validatePosition()) return;
         
         // Get player position
         const playerPosition = this.player.getPosition();

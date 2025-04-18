@@ -110,6 +110,9 @@ export class Player {
     }
     
     update(deltaTime, camera, enemies = []) {
+        // Validate position to prevent geometry errors
+        this.validatePosition();
+        
         // Handle movement
         this.velocity.x = 0;
         this.velocity.z = 0;
@@ -359,5 +362,24 @@ export class Player {
     
     getPosition() {
         return this.mesh.position;
+    }
+    
+    // Add this method to validate the player's position
+    validatePosition() {
+        if (this.body && this.body.position) {
+            // Check for NaN or infinite values in position
+            if (!isFinite(this.body.position.x) || !isFinite(this.body.position.y) || !isFinite(this.body.position.z)) {
+                console.warn(`Invalid player position detected. Resetting position.`);
+                // Reset to a safe position to prevent geometry calculation errors
+                this.body.position.set(0, 0.5, 0);
+                
+                // Also reset velocity if available
+                if (this.velocity) {
+                    this.velocity.set(0, 0, 0);
+                }
+                return false;
+            }
+        }
+        return true;
     }
 } 

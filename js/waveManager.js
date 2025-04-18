@@ -1,6 +1,6 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.module.js';
 import { Enemy, BaseEnemy, BasicEnemy, FastEnemy, TankyEnemy, RangedEnemy, EnemyType, enemyPool } from './enemy.js';
-import { BossEnemy } from './bossEnemy.js';
+import { BossFactory, BossType } from './bossFactory.js';
 
 export class WaveManager {
     constructor(scene, player) {
@@ -382,15 +382,30 @@ export class WaveManager {
         // Define spawn position (center of the arena)
         const position = new THREE.Vector3(0, 0, 0);
         
+        // Determine boss type based on wave number or random
+        let bossType = null;
+        
+        // Every 15 waves (after 3 boss waves), cycle through boss types
+        if (this.currentWave % 15 === 0) {
+            bossType = BossType.TITAN;  // Wave 15, 30, 45...
+        } else if (this.currentWave % 15 === 5) {
+            bossType = BossType.SORCERER; // Wave 5, 20, 35...
+        } else if (this.currentWave % 15 === 10) {
+            bossType = BossType.HUNTER;  // Wave 10, 25, 40...
+        } else {
+            // For any unexpected boss wave, choose random
+            bossType = null;  // Will pick random in factory
+        }
+        
         // Create a spectacular spawn effect for the boss
-        this.createBossSpawnEffect(position);
+        this.createBossSpawnEffect(position, bossType);
         
         // Delay the actual spawn to allow the effect to play
         setTimeout(() => {
             if (!this.waveActive) return; // Don't spawn if wave is no longer active
             
-            // Create the boss
-            this.currentBoss = new BossEnemy(this.scene, position, this.player, bossLevel);
+            // Create the boss using the factory
+            this.currentBoss = BossFactory.createBoss(this.scene, position, this.player, bossLevel, bossType);
             
             // Ensure boss is properly visible and active
             this.currentBoss.isAlive = true;
@@ -402,17 +417,38 @@ export class WaveManager {
             this.enemies.push(this.currentBoss);
             
             // Log for debugging
-            console.log(`Boss spawned: Level ${bossLevel}, Health: ${this.currentBoss.health}`);
+            console.log(`Boss spawned: Type ${this.currentBoss.type}, Level ${bossLevel}, Health: ${this.currentBoss.health}`);
         }, 2000); // 2 second delay for dramatic effect
     }
     
-    createBossSpawnEffect(position) {
+    createBossSpawnEffect(position, bossType) {
         // Create a more impressive spawn effect for bosses
+        
+        // Set color based on boss type
+        let effectColor = 0xff0000; // Default red
+        let secondaryColor = 0xff9900; // Default orange
+        
+        if (bossType) {
+            switch (bossType) {
+                case BossType.TITAN:
+                    effectColor = 0xff3300; // Red-orange
+                    secondaryColor = 0xff9900; // Orange
+                    break;
+                case BossType.SORCERER:
+                    effectColor = 0x9900ff; // Purple
+                    secondaryColor = 0x00ccff; // Cyan
+                    break;
+                case BossType.HUNTER:
+                    effectColor = 0x00ff99; // Green
+                    secondaryColor = 0xffcc00; // Yellow
+                    break;
+            }
+        }
         
         // Large expanding ring
         const ringGeometry = new THREE.RingGeometry(0, 5, 32);
         const ringMaterial = new THREE.MeshBasicMaterial({ 
-            color: 0xff0000,
+            color: effectColor,
             side: THREE.DoubleSide,
             transparent: true,
             opacity: 0.7
@@ -428,7 +464,7 @@ export class WaveManager {
         const beams = [];
         const beamGeometry = new THREE.CylinderGeometry(0.1, 0.1, 15, 8);
         const beamMaterial = new THREE.MeshBasicMaterial({ 
-            color: 0xff9900,
+            color: secondaryColor,
             transparent: true,
             opacity: 0.8
         });
@@ -473,7 +509,7 @@ export class WaveManager {
         particleGeometry.setAttribute('size', new THREE.BufferAttribute(particleSizes, 1));
         
         const particleMaterial = new THREE.PointsMaterial({
-            color: 0xff5500,
+            color: effectColor,
             size: 0.5,
             transparent: true,
             opacity: 0.8,
@@ -530,18 +566,38 @@ export class WaveManager {
     }
     
     showBossWaveNotification() {
+        // Get the boss type that will be spawned
+        let bossTypeName = "BOSS";
+        let bossColor = '#ff3333';
+        let bossSubtitle = "Prepare for battle!";
+        
+        // Determine boss type based on wave number
+        if (this.currentWave % 15 === 0) {
+            bossTypeName = "TITAN BOSS";
+            bossColor = '#ff3300';
+            bossSubtitle = "A mighty foe approaches!";
+        } else if (this.currentWave % 15 === 5) {
+            bossTypeName = "SORCERER BOSS";
+            bossColor = '#9900ff';
+            bossSubtitle = "Arcane energies gather!";
+        } else if (this.currentWave % 15 === 10) {
+            bossTypeName = "HUNTER BOSS";
+            bossColor = '#00ff99';
+            bossSubtitle = "A deadly predator stalks you!";
+        }
+        
         // Create notification element with more dramatic styling
         const notification = document.createElement('div');
-        notification.textContent = `BOSS WAVE ${this.currentWave / this.bossWaveFrequency}`;
+        notification.textContent = `${bossTypeName} ${Math.ceil(this.currentWave / this.bossWaveFrequency)}`;
         notification.style.position = 'absolute';
         notification.style.top = '50%';
         notification.style.left = '50%';
         notification.style.transform = 'translate(-50%, -50%)';
-        notification.style.color = '#ff3333';
+        notification.style.color = bossColor;
         notification.style.fontFamily = 'Arial, sans-serif';
         notification.style.fontSize = '64px';
         notification.style.fontWeight = 'bold';
-        notification.style.textShadow = '0 0 10px #ff0000, 0 0 20px #ff0000';
+        notification.style.textShadow = `0 0 10px ${bossColor}, 0 0 20px ${bossColor}`;
         notification.style.zIndex = '200';
         notification.style.opacity = '1';
         notification.style.transition = 'opacity 1.5s';
@@ -549,7 +605,7 @@ export class WaveManager {
         
         // Add a subtitle
         const subtitle = document.createElement('div');
-        subtitle.textContent = `Prepare for battle!`;
+        subtitle.textContent = bossSubtitle;
         subtitle.style.position = 'absolute';
         subtitle.style.top = 'calc(50% + 70px)';
         subtitle.style.left = '50%';

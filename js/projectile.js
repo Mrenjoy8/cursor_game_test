@@ -130,9 +130,14 @@ export class Projectile {
             
             // Safety check to ensure both objects have valid positions
             if (!this.mesh || !this.mesh.position) return false;
+            if (!isValidVector(this.mesh.position)) {
+                console.warn("Projectile has invalid position, deactivating");
+                this.deactivate();
+                return false;
+            }
             
             const enemyPosition = enemy.getPosition();
-            if (!enemyPosition || !isFinite(enemyPosition.x) || !isFinite(enemyPosition.y) || !isFinite(enemyPosition.z)) {
+            if (!enemyPosition || !isValidVector(enemyPosition)) {
                 console.warn("Enemy has invalid position:", enemy.type);
                 return false;
             }
@@ -143,12 +148,20 @@ export class Projectile {
             // Check if enemy has a collisionRadius getter or is a boss
             if (typeof enemy.collisionRadius !== 'undefined') {
                 enemyRadius = enemy.collisionRadius;
-            } else if (enemy.type === 'boss') {
+            } else if (enemy.type === 'boss' || enemy.type === 'titan' || 
+                      enemy.type === 'sorcerer' || enemy.type === 'hunter') {
                 enemyRadius = enemy.size || 1.5; // Use boss size or default to 1.5
             }
             
             // Simple sphere collision
             const distance = this.mesh.position.distanceTo(enemyPosition);
+            
+            // Validate distance calculation
+            if (!isFinite(distance)) {
+                console.warn("Invalid distance calculation in projectile collision");
+                return false;
+            }
+            
             const collisionRadius = this.size + enemyRadius;
             
             if (distance < collisionRadius) {
@@ -170,19 +183,45 @@ export class Projectile {
     
     // Check collision with player (for enemy projectiles)
     checkPlayerCollision(player) {
-        if (!this.isActive || this.isFromPlayer) return false;
+        if (!this.isActive || this.isFromPlayer || !player) return false;
         
-        // Simple sphere collision
-        const distance = this.mesh.position.distanceTo(player.getPosition());
-        const collisionRadius = this.size + 0.5; // Projectile size + player radius
-        if (distance < collisionRadius) {
-            // Hit player
-            player.takeDamage(this.damage);
-            this.deactivate();
-            return true;
+        try {
+            // Safety check for valid positions
+            if (!this.mesh || !this.mesh.position) return false;
+            if (!isValidVector(this.mesh.position)) {
+                console.warn("Projectile has invalid position, deactivating");
+                this.deactivate();
+                return false;
+            }
+            
+            const playerPosition = player.getPosition();
+            if (!playerPosition || !isValidVector(playerPosition)) {
+                console.warn("Player has invalid position");
+                return false;
+            }
+            
+            // Simple sphere collision
+            const distance = this.mesh.position.distanceTo(playerPosition);
+            
+            // Validate distance calculation
+            if (!isFinite(distance)) {
+                console.warn("Invalid distance calculation in player collision");
+                return false;
+            }
+            
+            const collisionRadius = this.size + 0.5; // Projectile size + player radius
+            if (distance < collisionRadius) {
+                // Hit player
+                player.takeDamage(this.damage);
+                this.deactivate();
+                return true;
+            }
+            
+            return false;
+        } catch (error) {
+            console.error("Error in projectile-player collision check:", error);
+            return false;
         }
-        
-        return false;
     }
     
     deactivate() {
@@ -247,4 +286,11 @@ export class Projectile {
             this.mesh = null;
         }
     }
+}
+
+// Helper function to check if vector components are valid numbers
+function isValidVector(vector) {
+    return vector && typeof vector.x === 'number' && typeof vector.y === 'number' 
+        && typeof vector.z === 'number' && isFinite(vector.x) && isFinite(vector.y) 
+        && isFinite(vector.z);
 } 

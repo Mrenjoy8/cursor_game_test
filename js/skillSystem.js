@@ -160,8 +160,10 @@ export class SkillSystem {
     }
     
     showSkillSelection() {
-        // Pause game
-        this.game.paused = true;
+        // Pause game using game's togglePause with silent mode (no overlay)
+        if (!this.game.paused) {
+            this.game.togglePause(false);
+        }
         
         // Clear previous skill options
         this.skillOptionsContainer.innerHTML = '';
@@ -176,6 +178,18 @@ export class SkillSystem {
             const card = this.createSkillCard(skill);
             this.skillOptionsContainer.appendChild(card);
         });
+        
+        // Add level up notification above skill cards
+        const levelUpNotice = document.createElement('div');
+        levelUpNotice.textContent = `LEVEL UP! (${this.player.level})`;
+        levelUpNotice.style.color = '#ffcc00';
+        levelUpNotice.style.fontSize = '32px';
+        levelUpNotice.style.fontWeight = 'bold';
+        levelUpNotice.style.marginBottom = '20px';
+        levelUpNotice.style.textAlign = 'center';
+        levelUpNotice.style.width = '100%';
+        levelUpNotice.style.textShadow = '0 0 10px rgba(255, 204, 0, 0.7)';
+        this.skillOptionsContainer.insertBefore(levelUpNotice, this.skillOptionsContainer.firstChild);
         
         // Show container
         this.container.style.display = 'block';
@@ -259,8 +273,16 @@ export class SkillSystem {
         // Hide skill selector
         this.container.style.display = 'none';
         
-        // Resume game
-        this.game.paused = false;
+        // Dispatch custom event to notify other systems that a skill was selected
+        document.dispatchEvent(new Event('skillSelected'));
+        
+        // Resume game using game's togglePause to restore enemy states
+        // Add a small delay to ensure UI is fully hidden first
+        setTimeout(() => {
+            if (this.game.paused) {
+                this.game.togglePause(false); // Resume without showing/hiding overlay
+            }
+        }, 50);
     }
     
     getSkillLevel(skillId) {

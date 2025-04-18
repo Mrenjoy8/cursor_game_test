@@ -3,9 +3,10 @@ import { Enemy, BaseEnemy, BasicEnemy, FastEnemy, TankyEnemy, RangedEnemy, Enemy
 import { BossFactory, BossType } from './bossFactory.js';
 
 export class WaveManager {
-    constructor(scene, player) {
+    constructor(scene, player, game) {
         this.scene = scene;
         this.player = player;
+        this.game = game;
         
         // Add reference to this WaveManager in the scene for the boss to access
         this.scene.waveManager = this;
@@ -742,10 +743,59 @@ export class WaveManager {
         // Update display
         this.updateWaveDisplay();
         
-        // Schedule next wave
-        this.waveTimeout = setTimeout(() => {
-            this.startNextWave();
-        }, this.timeBetweenWaves);
+        // Show wave complete notification
+        if (this.currentWave > 0) {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.textContent = `Wave ${this.currentWave} Complete!`;
+            notification.style.position = 'absolute';
+            notification.style.top = '40%';
+            notification.style.left = '50%';
+            notification.style.transform = 'translate(-50%, -50%)';
+            notification.style.color = '#00ffaa';
+            notification.style.fontFamily = 'Arial, sans-serif';
+            notification.style.fontSize = '36px';
+            notification.style.fontWeight = 'bold';
+            notification.style.textShadow = '2px 2px 4px rgba(0, 0, 0, 0.7)';
+            notification.style.zIndex = '200';
+            notification.style.opacity = '1';
+            notification.style.transition = 'opacity 1s';
+            document.body.appendChild(notification);
+            
+            // Fade out and remove
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        document.body.removeChild(notification);
+                    }
+                }, 1000);
+            }, 1500);
+        }
+        
+        // Schedule the next wave without pausing, but check if skill selection is active
+        // If game is already paused (likely from level up screen), don't schedule the next wave yet
+        if (this.game && this.game.paused && this.game.skillSystem && 
+            this.game.skillSystem.container.style.display === 'block') {
+            console.log("Wave complete during skill selection - waiting for skill choice before starting next wave");
+            
+            // Create a one-time event listener for when the game is unpaused (after skill selection)
+            const startNextWaveAfterUnpause = () => {
+                if (!this.game.paused) {
+                    console.log("Game unpaused after skill selection - starting next wave");
+                    this.startNextWave();
+                    document.removeEventListener('skillSelected', startNextWaveAfterUnpause);
+                }
+            };
+            
+            // Listen for a custom event that will be dispatched after skill selection
+            document.addEventListener('skillSelected', startNextWaveAfterUnpause);
+        } else {
+            // Simply schedule the next wave 
+            this.waveTimeout = setTimeout(() => {
+                this.startNextWave();
+            }, this.timeBetweenWaves);
+        }
     }
     
     reset() {

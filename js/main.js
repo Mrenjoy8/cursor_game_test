@@ -13,9 +13,11 @@ class Game {
     constructor() {
         // Game state
         this.lastTime = 0;
+        this.lastUnpauseTime = null;
         this.isGameOver = false;
         this.paused = false;
         this.isGameStarted = false;
+        this.savedEnemyStates = null;
         
         // Create the renderer first so we can see the menu
         this.renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -176,8 +178,8 @@ class Game {
         // Set up camera controller
         this.cameraController = new CameraController(this.camera, this.player);
         
-        // Set up wave manager
-        this.waveManager = new WaveManager(this.scene, this.player);
+        // Set up wave manager - pass this (the game instance) as third argument
+        this.waveManager = new WaveManager(this.scene, this.player, this);
         this.waveManager.initialize();
         
         // Store reference to waveManager in scene for components to access
@@ -230,14 +232,124 @@ class Game {
         // Add pause functionality
         document.addEventListener('keydown', (event) => {
             if (event.code === 'Escape' && this.isGameStarted) {
-                this.togglePause();
+                // Only toggle with overlay if no skill selection is active
+                const skillSelectionVisible = this.skillSystem && 
+                    this.skillSystem.container && 
+                    this.skillSystem.container.style.display === 'block';
+                    
+                if (!skillSelectionVisible) {
+                    this.togglePause(true); // Show pause overlay
+                }
             }
         });
     }
     
-    togglePause() {
+    togglePause(showOverlay = true) {
+        // If we're about to pause, save enemy positions
+        if (!this.paused && this.waveManager && this.waveManager.enemies) {
+            // Save position data for all active enemies
+            this.savedEnemyStates = this.waveManager.enemies.map(enemy => {
+                if (enemy && enemy.mesh) {
+                    // Save more comprehensive state
+                    return {
+                        id: enemy.id,
+                        type: enemy.type,
+                        position: {
+                            x: enemy.mesh.position.x,
+                            y: enemy.mesh.position.y,
+                            z: enemy.mesh.position.z
+                        },
+                        rotation: {
+                            x: enemy.mesh.rotation.x,
+                            y: enemy.mesh.rotation.y,
+                            z: enemy.mesh.rotation.z
+                        },
+                        health: enemy.health,
+                        isAlive: enemy.isAlive
+                    };
+                }
+                return null;
+            }).filter(state => state !== null);
+            
+            console.log(`Paused game - saved positions for ${this.savedEnemyStates.length} enemies`);
+        }
+        
+        // Toggle pause state
         this.paused = !this.paused;
         console.log(`Game ${this.paused ? 'paused' : 'resumed'}`);
+        
+        // Mark time when game is unpaused for smooth delta time calculation
+        if (!this.paused) {
+            this.lastUnpauseTime = Date.now();
+        }
+        
+        // If we're resuming, restore enemy positions
+        if (!this.paused && this.savedEnemyStates && this.waveManager && this.waveManager.enemies) {
+            console.log(`Resuming game - restoring positions for ${this.savedEnemyStates.length} enemies`);
+            
+            // Restore positions for all active enemies
+            for (let i = 0; i < this.waveManager.enemies.length; i++) {
+                const enemy = this.waveManager.enemies[i];
+                
+                // Find the saved state for this enemy
+                const savedState = this.savedEnemyStates.find(state => state.id === enemy.id);
+                
+                if (savedState && enemy.mesh) {
+                    // Restore the exact position
+                    enemy.mesh.position.set(
+                        savedState.position.x,
+                        savedState.position.y,
+                        savedState.position.z
+                    );
+                    
+                    // Restore the exact rotation
+                    enemy.mesh.rotation.set(
+                        savedState.rotation.x,
+                        savedState.rotation.y,
+                        savedState.rotation.z
+                    );
+                    
+                    // Restore health if needed
+                    if (enemy.health !== savedState.health) {
+                        enemy.health = savedState.health;
+                    }
+                }
+            }
+            
+            // Clear saved states
+            this.savedEnemyStates = null;
+        }
+        
+        // Create pause overlay if game is paused and showOverlay is true
+        if (this.paused && showOverlay) {
+            // Create pause overlay
+            this.pauseOverlay = document.createElement('div');
+            this.pauseOverlay.style.position = 'absolute';
+            this.pauseOverlay.style.top = '0';
+            this.pauseOverlay.style.left = '0';
+            this.pauseOverlay.style.width = '100%';
+            this.pauseOverlay.style.height = '100%';
+            this.pauseOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+            this.pauseOverlay.style.display = 'flex';
+            this.pauseOverlay.style.justifyContent = 'center';
+            this.pauseOverlay.style.alignItems = 'center';
+            this.pauseOverlay.style.zIndex = '1000';
+            
+            // Pause text
+            const pauseText = document.createElement('div');
+            pauseText.textContent = 'PAUSED';
+            pauseText.style.color = 'white';
+            pauseText.style.fontSize = '48px';
+            pauseText.style.fontFamily = 'Arial, sans-serif';
+            pauseText.style.fontWeight = 'bold';
+            this.pauseOverlay.appendChild(pauseText);
+            
+            document.body.appendChild(this.pauseOverlay);
+        } else if (this.pauseOverlay) {
+            // Remove pause overlay
+            document.body.removeChild(this.pauseOverlay);
+            this.pauseOverlay = null;
+        }
     }
     
     setupLights() {
@@ -337,17 +449,32 @@ class Game {
         
         if (this.isGameStarted) {
             // Game is active
-            if (this.isGameOver || this.paused) return;
+            if (this.isGameOver) return;
+            
+            if (this.paused) {
+                // Render the scene even when paused to show the UI
+                this.renderer.render(this.scene, this.camera);
+                return;
+            }
+            
+            // If the game was just resumed, reset lastTime to prevent huge delta jumps
+            if (this.lastUnpauseTime && time - this.lastUnpauseTime < 1000) {
+                this.lastTime = time;
+                this.lastUnpauseTime = null;
+            }
             
             // Calculate delta time for frame-rate independent movement
             const deltaTime = time - this.lastTime;
             this.lastTime = time;
             
+            // Cap deltaTime to prevent huge position jumps after long pauses
+            const cappedDeltaTime = Math.min(deltaTime, 100);
+            
             // Update wave manager
-            this.waveManager.update(deltaTime);
+            this.waveManager.update(cappedDeltaTime);
             
             // Update player - pass enemies for auto-targeting
-            this.player.update(deltaTime, this.camera, this.waveManager.enemies);
+            this.player.update(cappedDeltaTime, this.camera, this.waveManager.enemies);
             
             // Update camera
             this.cameraController.update();

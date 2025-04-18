@@ -43,15 +43,18 @@ class EnemyPool {
     
     release(enemy) {
         if (enemy && enemy.type && this.pools[enemy.type]) {
-            // Reset enemy state
+            // Reset minimal enemy state - leave ID and position intact
             enemy.isAlive = false;
-            enemy.mesh.visible = false;
             
-            // Ensure material color is reset to default before pooling
-            if (enemy.mesh && enemy.mesh.material) {
-                enemy.mesh.material.color.setHex(enemy.defaultColor);
-                enemy.mesh.material.opacity = 1;
-                enemy.mesh.material.transparent = false;
+            if (enemy.mesh) {
+                enemy.mesh.visible = false;
+                
+                // Ensure material color is reset to default before pooling
+                if (enemy.mesh.material) {
+                    enemy.mesh.material.color.setHex(enemy.defaultColor);
+                    enemy.mesh.material.opacity = 1;
+                    enemy.mesh.material.transparent = false;
+                }
             }
             
             // Clean up projectiles for ranged enemies
@@ -64,7 +67,7 @@ class EnemyPool {
                 enemy.projectiles = [];
             }
             
-            // Add to pool
+            // Add to pool - preserve the enemy's identity and position
             this.pools[enemy.type].push(enemy);
         }
     }
@@ -78,20 +81,23 @@ export class BaseEnemy {
     constructor(scene, position, player) {
         this.scene = scene;
         this.player = player;
-        this.isAlive = true;
-        this.lastAttackTime = 0;
         
-        // Default values - will be overridden by subclasses
+        // Generate a unique ID for this enemy instance
+        this.id = Math.random().toString(36).substr(2, 9);
+        
+        // Default enemy values
+        this.isAlive = true;
         this.health = 30;
+        this.maxHealth = 30;
         this.damage = 10;
         this.moveSpeed = 0.015;
+        this.attackRange = 2;
+        this.attackCooldown = 1000; // ms
+        this.lastAttackTime = 0;
         this.experienceValue = 20;
-        this.attackCooldown = 1000; // 1 second cooldown between attacks
-        this.attackRange = 1.5; // How close the enemy needs to be to attack
-        this.type = EnemyType.BASIC;
         this.defaultColor = 0xff0000; // Red
         
-        // Create enemy mesh - will be implemented by subclasses
+        // Create mesh if position is provided
         if (position) {
             this.createEnemyMesh(position);
         }
@@ -121,9 +127,11 @@ export class BaseEnemy {
         this.health = this.maxHealth || 30;
         this.lastAttackTime = 0;
         
-        // Reset position and make visible
-        if (position && this.mesh) {
-            this.mesh.position.copy(position);
+        // Don't reset the ID - we want to keep the same ID for position tracking
+        // this.id remains unchanged
+        
+        if (this.mesh) {
+            // Make visible again
             this.mesh.visible = true;
             
             // Reset material color
@@ -141,23 +149,31 @@ export class BaseEnemy {
                 this.mesh.material.transparent = false;
             }
             
-            // Ensure the Y position is correct for this enemy type
-            switch(this.type) {
-                case EnemyType.BASIC:
-                    this.mesh.position.y = 0.75; // Half height for cone
-                    break;
-                case EnemyType.FAST:
-                    this.mesh.position.y = 0.4; // Half height for cube
-                    break;
-                case EnemyType.TANKY:
-                    this.mesh.position.y = 0.9; // Half height for cylinder
-                    break;
-                case EnemyType.RANGED:
-                    this.mesh.position.y = 0.5; // Half height for sphere
-                    break;
-                default:
-                    this.mesh.position.y = 0.75;
+            // Only update position if specifically provided
+            if (position) {
+                this.mesh.position.copy(position);
+                
+                // Ensure the Y position is correct for this enemy type
+                switch(this.type) {
+                    case EnemyType.BASIC:
+                        this.mesh.position.y = 0.75; // Half height for cone
+                        break;
+                    case EnemyType.FAST:
+                        this.mesh.position.y = 0.4; // Half height for cube
+                        break;
+                    case EnemyType.TANKY:
+                        this.mesh.position.y = 0.9; // Half height for cylinder
+                        break;
+                    case EnemyType.RANGED:
+                        this.mesh.position.y = 0.5; // Half height for sphere
+                        break;
+                    default:
+                        this.mesh.position.y = 0.75;
+                }
             }
+        } else if (position) {
+            // Create a new mesh if needed
+            this.createEnemyMesh(position);
         }
     }
     

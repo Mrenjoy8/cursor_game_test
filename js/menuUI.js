@@ -26,7 +26,7 @@ export class MenuUI {
         
         // Game title
         const title = document.createElement('h1');
-        title.textContent = 'MYSTIC QUEST';
+        title.textContent = 'GRIND or DIE';
         title.style.fontSize = '64px';
         title.style.marginBottom = '20px';
         title.style.color = 'var(--white)';
@@ -36,13 +36,13 @@ export class MenuUI {
         menu.appendChild(title);
         
         // Subtitle
-        const subtitle = document.createElement('p');
-        subtitle.textContent = 'Begin Your Adventure';
+        /*const subtitle = document.createElement('p');
+        subtitle.textContent = 'Get out before they catch you';
         subtitle.style.fontSize = '24px';
         subtitle.style.marginBottom = '60px';
         subtitle.style.color = 'var(--white)';
         subtitle.style.opacity = '0.9';
-        menu.appendChild(subtitle);
+        menu.appendChild(subtitle);*/
         
         // Menu buttons container
         const buttonContainer = document.createElement('div');
@@ -75,7 +75,7 @@ export class MenuUI {
         
         // Copyright text
         const copyright = document.createElement('p');
-        copyright.textContent = '© 2025 Mystic Quest. All rights reserved.';
+        copyright.textContent = '© 2025 BearishAF & GRIND. All rights reserved.';
         copyright.style.position = 'absolute';
         copyright.style.bottom = '20px';
         copyright.style.fontSize = '14px';

@@ -36,7 +36,7 @@ export function setupGlobalStyles() {
             left: 0;
             width: 100%;
             height: 100%;
-            background: var(--bg-gradient), url('placeholder-forest-bg.jpg') center/cover no-repeat;
+            background: var(--bg-gradient), url('/js/assets/grind_main_bg_v1.png') center/cover no-repeat;
             background-blend-mode: overlay;
             display: flex;
             flex-direction: column;

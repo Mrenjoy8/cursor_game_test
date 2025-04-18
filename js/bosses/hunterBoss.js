@@ -1240,6 +1240,32 @@ export class HunterBoss extends BaseEnemy {
         this.projectiles = [];
     }
     
+    // Override removeFromScene to prevent boss from being added to enemy pool
+    removeFromScene() {
+        console.log("Hunter Boss removeFromScene called - ensuring complete cleanup");
+        // For bosses, we need to make sure the mesh is completely removed and not pooled
+        if (this.mesh) {
+            // Remove from scene and dispose resources if not already done by die()
+            if (this.mesh.parent) {
+                this.scene.remove(this.mesh);
+            }
+            
+            // Dispose of main mesh resources if not already done
+            if (this.mesh.geometry) this.mesh.geometry.dispose();
+            if (this.mesh.material) {
+                if (Array.isArray(this.mesh.material)) {
+                    this.mesh.material.forEach(m => m.dispose());
+                } else {
+                    this.mesh.material.dispose();
+                }
+            }
+            
+            // Clear the mesh reference
+            this.mesh = null;
+        }
+        // Do NOT call enemyPool.release() here, as bosses should not be pooled
+    }
+    
     get collisionRadius() {
         return this.size * 0.8; // Use hunter size for collision radius
     }

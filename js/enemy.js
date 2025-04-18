@@ -298,7 +298,13 @@ export class BaseEnemy {
     }
     
     getPosition() {
-        return this.mesh ? this.mesh.position : null;
+        // Enhanced version that returns a default position if mesh doesn't exist
+        if (!this.mesh || !this.mesh.position) {
+            console.warn("Enemy mesh or position is null in getPosition call");
+            // Return a new Vector3 with coordinates (0,0,0) as a fallback
+            return new THREE.Vector3(0, 0, 0);
+        }
+        return this.mesh.position;
     }
 }
 

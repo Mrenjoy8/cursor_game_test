@@ -642,19 +642,35 @@ export class WaveManager {
                 // Handle enemy death
                 // Check if it was a boss
                 if (this.isBossWave && enemy === this.currentBoss) {
+                    console.log("Boss died, creating death effect");
+                    
+                    // IMPORTANT: First get the position before any cleanup occurs
+                    // Get position even if the mesh is already gone
+                    const bossPosition = enemy.getPosition().clone(); // This now returns a fallback position if null
+                    console.log("Boss death position:", bossPosition);
+                    
+                    // Then handle boss removal and cleanup
+                    if (enemy.mesh && enemy.mesh.visible) {
+                        console.log("Explicitly calling boss die() method");
+                        enemy.die(); // This will clean up the mesh
+                    } else {
+                        console.log("Boss mesh already removed, skipping die() call");
+                    }
+                    
+                    // Create death effect
+                    this.createBossDeathEffect(bossPosition);
+                    
+                    // Clear boss reference and update state
                     this.currentBoss = null;
-                    // Create spectacular death effect
-                    this.createBossDeathEffect(enemy.getPosition());
-                }
-                
-                // Remove from scene and array
-                enemy.removeFromScene();
-                this.enemies.splice(i, 1);
-                this.enemiesRemaining--;
-                
-                // Release to pool if not a boss
-                if (!this.isBossWave || enemy !== this.currentBoss) {
-                    enemyPool.release(enemy);
+                    this.enemies.splice(i, 1);
+                    this.enemiesRemaining--;
+                } else {
+                    // Regular enemy - use object pool system
+                    // For regular enemies, this adds them back to the pool
+                    // We don't need to call enemyPool.release explicitly as removeFromScene does this
+                    enemy.removeFromScene(); 
+                    this.enemies.splice(i, 1);
+                    this.enemiesRemaining--;
                 }
                 
                 // Check if wave is complete
@@ -757,6 +773,7 @@ export class WaveManager {
     }
     
     createBossDeathEffect(position) {
+        console.log("Creating boss death effect at position:", position);
         // Create spectacular death effect for boss
         // Similar to spawn effect but with different colors and behavior
         
@@ -864,18 +881,23 @@ export class WaveManager {
             if (progress < 1.0) {
                 requestAnimationFrame(animate);
             } else {
-                // Clean up when animation is complete
+                // Clean up ALL objects to prevent memory leaks
+                console.log("Boss death animation complete - cleaning up all effect objects");
+                
+                // Remove objects from scene
                 this.scene.remove(explosion);
-                explosionMaterial.dispose();
-                explosionGeometry.dispose();
-                
                 this.scene.remove(ring);
-                ringMaterial.dispose();
-                ringGeometry.dispose();
-                
                 this.scene.remove(particles);
-                particleMaterial.dispose();
+                
+                // Dispose geometries
+                explosionGeometry.dispose();
+                ringGeometry.dispose();
                 particleGeometry.dispose();
+                
+                // Dispose materials
+                explosionMaterial.dispose();
+                ringMaterial.dispose();
+                particleMaterial.dispose();
                 
                 // Give player a reward
                 this.givePlayerBossReward();

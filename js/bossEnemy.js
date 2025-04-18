@@ -866,11 +866,9 @@ export class BossEnemy extends BaseEnemy {
     }
     
     die() {
-        // Boss has unique death handling
+        console.log("Boss die() method called - cleaning up mesh");
+        // Set alive status to false
         this.isAlive = false;
-        
-        // Death animation is handled by the wave manager
-        this.mesh.visible = false;
         
         // Clean up projectiles
         for (const projectile of this.projectiles) {
@@ -879,6 +877,92 @@ export class BossEnemy extends BaseEnemy {
             }
         }
         this.projectiles = [];
+        
+        // IMPORTANT: Completely remove the boss mesh from the scene
+        if (this.mesh) {
+            console.log("Removing boss mesh from scene");
+            
+            // First, remove and dispose of all children components
+            if (this.spikes && this.spikes.length) {
+                this.spikes.forEach(spike => {
+                    this.mesh.remove(spike);
+                    if (spike.geometry) spike.geometry.dispose();
+                    if (spike.material) spike.material.dispose();
+                });
+                this.spikes = [];
+            }
+            
+            if (this.crown) {
+                this.mesh.remove(this.crown);
+                if (this.crown.geometry) this.crown.geometry.dispose();
+                if (this.crown.material) this.crown.material.dispose();
+                this.crown = null;
+            }
+            
+            if (this.eye) {
+                this.mesh.remove(this.eye);
+                if (this.eye.geometry) this.eye.geometry.dispose();
+                if (this.eye.material) this.eye.material.dispose();
+                this.eye = null;
+            }
+            
+            // Then remove any remaining children (just to be safe)
+            while (this.mesh.children.length > 0) {
+                const child = this.mesh.children[0];
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) {
+                    if (Array.isArray(child.material)) {
+                        child.material.forEach(m => m.dispose());
+                    } else {
+                        child.material.dispose();
+                    }
+                }
+                this.mesh.remove(child);
+            }
+            
+            // Remove the main mesh from the scene
+            this.scene.remove(this.mesh);
+            
+            // Dispose of main mesh resources
+            if (this.mesh.geometry) this.mesh.geometry.dispose();
+            if (this.mesh.material) {
+                if (Array.isArray(this.mesh.material)) {
+                    this.mesh.material.forEach(m => m.dispose());
+                } else {
+                    this.mesh.material.dispose();
+                }
+            }
+            
+            // Clear the mesh reference
+            this.mesh = null;
+            console.log("Boss mesh cleanup complete");
+        }
+    }
+    
+    // Override removeFromScene to prevent boss from being added to enemy pool
+    removeFromScene() {
+        console.log("Boss removeFromScene called - ensuring complete cleanup");
+        // For bosses, we need to make sure the mesh is completely removed and not pooled
+        if (this.mesh) {
+            // Remove from scene and dispose resources if not already done by die()
+            if (this.mesh.parent) {
+                this.scene.remove(this.mesh);
+            }
+            
+            // Dispose of main mesh resources if not already done
+            if (this.mesh.geometry) this.mesh.geometry.dispose();
+            if (this.mesh.material) {
+                if (Array.isArray(this.mesh.material)) {
+                    this.mesh.material.forEach(m => m.dispose());
+                } else {
+                    this.mesh.material.dispose();
+                }
+            }
+            
+            // Clear the mesh reference
+            this.mesh = null;
+        }
+        // Do NOT call enemyPool.release() here, as bosses should not be pooled
     }
     
     // Override the collisionRadius getter for better player collision detection

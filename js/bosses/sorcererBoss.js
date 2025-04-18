@@ -1052,4 +1052,38 @@ export class SorcererBoss extends BaseEnemy {
             console.error("Error in Sorcerer phase transition effect:", error);
         }
     }
+
+    // Add removeFromScene method to override BaseEnemy implementation
+    removeFromScene() {
+        console.log("Sorcerer Boss removeFromScene called - ensuring complete cleanup");
+        // For bosses, we need to make sure the mesh is completely removed and not pooled
+        if (this.mesh) {
+            // Remove from scene and dispose resources if not already done by die()
+            if (this.mesh.parent) {
+                this.scene.remove(this.mesh);
+            }
+            
+            // Dispose of main mesh resources if not already done
+            if (this.mesh.geometry) this.mesh.geometry.dispose();
+            if (this.mesh.material) {
+                if (Array.isArray(this.mesh.material)) {
+                    this.mesh.material.forEach(m => m.dispose());
+                } else {
+                    this.mesh.material.dispose();
+                }
+            }
+            
+            // Clean up special effects objects
+            if (this.orb) {
+                this.scene.remove(this.orb);
+                if (this.orb.geometry) this.orb.geometry.dispose();
+                if (this.orb.material) this.orb.material.dispose();
+                this.orb = null;
+            }
+            
+            // Clear the mesh reference
+            this.mesh = null;
+        }
+        // Do NOT call enemyPool.release() here, as bosses should not be pooled
+    }
 } 

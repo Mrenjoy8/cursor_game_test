@@ -4,12 +4,25 @@ export function setupGlobalStyles() {
     
     // CSS styles as a template string
     style.textContent = `
+        /* Color Palette */
+        :root {
+            --primary-green: #2c7a51;
+            --light-green: #4CAF50;
+            --white: #fff;
+            --light-brown: #d4bc91;
+            --pink: #e493b3;
+            --bg-gradient: linear-gradient(135deg, #1c5c3c 0%, #2c7a51 100%);
+            --panel-bg: rgba(255, 255, 255, 0.15);
+            --shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
+        }
+        
         /* Base styles */
         body {
             margin: 0;
             overflow: hidden;
-            background-color: #000;
-            font-family: 'Arial', sans-serif;
+            background: var(--bg-gradient);
+            font-family: 'Exo 2', sans-serif;
+            color: var(--white);
         }
         
         canvas {
@@ -23,59 +36,141 @@ export function setupGlobalStyles() {
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.8);
+            background: var(--bg-gradient), url('placeholder-forest-bg.jpg') center/cover no-repeat;
+            background-blend-mode: overlay;
             display: flex;
             flex-direction: column;
-            justify-content: center;
+            justify-content: flex-start;
             align-items: center;
-            color: white;
+            color: var(--white);
             z-index: 1000;
+            overflow-y: auto;
         }
         
         /* Menu buttons with hover effect */
         .menu-button {
-            background-color: #ff3300;
-            color: white;
+            background-color: var(--primary-green);
+            color: var(--white);
             border: none;
-            padding: 15px 30px;
-            font-size: 24px;
-            border-radius: 5px;
+            padding: 16px 30px;
+            font-size: 20px;
+            border-radius: 50px;
             cursor: pointer;
             transition: all 0.3s;
             width: 100%;
             font-weight: bold;
-            text-transform: uppercase;
             letter-spacing: 1px;
-            margin: 8px 0;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            margin: 10px 0;
+            box-shadow: var(--shadow);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         
         .menu-button:hover {
-            background-color: #ff6600;
-            transform: scale(1.05);
-            box-shadow: 0 6px 10px rgba(0, 0, 0, 0.4);
+            background-color: var(--light-green);
+            transform: translateY(-3px);
+        }
+        
+        .menu-button:active {
+            transform: translateY(0);
+        }
+        
+        .menu-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transform: translateX(-100%);
+            transition: 0.6s;
+        }
+        
+        .menu-button:hover::before {
+            transform: translateX(100%);
+        }
+        
+        /* Section containers */
+        .content-container {
+            background: var(--panel-bg);
+            backdrop-filter: blur(4px);
+            border-radius: 24px;
+            padding: 25px;
+            margin-bottom: 20px;
+            width: 100%;
+            box-sizing: border-box;
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(255, 255, 255, 0.18);
         }
         
         /* Enemy card styling */
         .enemy-card {
-            background-color: rgba(50, 50, 50, 0.8);
-            border-radius: 10px;
+            background: var(--panel-bg);
+            backdrop-filter: blur(4px);
+            border-radius: 20px;
             padding: 20px;
-            width: 300px;
             transition: transform 0.3s, box-shadow 0.3s;
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            margin-bottom: 10px;
         }
         
         .enemy-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
         }
         
         /* Game HUD elements */
-        .health-bar, .exp-bar {
-            border-radius: 4px;
+        .hud-container {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 100;
+        }
+        
+        .health-bar-container, .exp-bar-container {
+            width: 300px;
+            height: 20px;
+            background: var(--panel-bg);
+            backdrop-filter: blur(4px);
+            border-radius: 10px;
             overflow: hidden;
-            position: relative;
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+        
+        .health-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--pink) 0%, #f06292 100%);
+            border-radius: 10px;
             transition: width 0.3s;
+        }
+        
+        .exp-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--light-brown) 0%, #e6cc9f 100%);
+            border-radius: 10px;
+            transition: width 0.3s;
+        }
+        
+        .status-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: var(--panel-bg);
+            backdrop-filter: blur(4px);
+            border-radius: 20px;
+            padding: 10px 20px;
+            font-size: 18px;
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(255, 255, 255, 0.18);
         }
         
         /* Game over screen */
@@ -84,14 +179,88 @@ export function setupGlobalStyles() {
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background-color: rgba(0, 0, 0, 0.9);
-            color: white;
-            padding: 30px;
-            border-radius: 10px;
+            background: var(--panel-bg);
+            backdrop-filter: blur(8px);
+            color: var(--white);
+            padding: 40px;
+            border-radius: 30px;
             text-align: center;
             z-index: 1100;
-            box-shadow: 0 0 30px rgba(255, 0, 0, 0.5);
-            border: 2px solid #ff0000;
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            max-width: 90%;
+            width: 400px;
+        }
+        
+        /* Media queries for responsive design */
+        @media (max-width: 768px) {
+            .content-container {
+                padding: 20px 15px;
+                border-radius: 18px;
+            }
+            
+            .health-bar-container, .exp-bar-container {
+                width: 250px;
+            }
+            
+            .game-over {
+                padding: 30px 20px;
+                width: 80%;
+            }
+            
+            .menu-button {
+                padding: 14px 20px;
+                font-size: 18px;
+            }
+            
+            .status-indicator {
+                font-size: 16px;
+                padding: 8px 15px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .menu-screen {
+                padding: 20px 15px 80px;
+            }
+            
+            h1 {
+                font-size: 36px !important;
+            }
+            
+            h2 {
+                font-size: 32px !important;
+            }
+            
+            h3 {
+                font-size: 22px !important;
+            }
+            
+            .health-bar-container, .exp-bar-container {
+                width: 200px;
+            }
+            
+            .game-over {
+                padding: 25px 15px;
+                width: 90%;
+            }
+            
+            .menu-button {
+                padding: 12px 16px;
+                font-size: 16px;
+            }
+            
+            .status-indicator {
+                font-size: 14px;
+                padding: 6px 12px;
+                top: 10px;
+                right: 10px;
+            }
+            
+            .hud-container {
+                bottom: 10px;
+                left: 10px;
+            }
         }
     `;
     

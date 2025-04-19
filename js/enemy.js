@@ -20,31 +20,53 @@ class EnemyPool {
         };
     }
     
-    get(type, scene, position, player) {
+    get(type, scene, position, player, powerScaling = 1.0) {
         // Check if we have an available enemy in the pool
         if (this.pools[type] && this.pools[type].length > 0) {
             const enemy = this.pools[type].pop();
-            enemy.reset(position);
+            enemy.reset(position, powerScaling);
+            
+            // Log enemy stats after being pulled from pool
+            console.log(`Respawned ${enemy.type} enemy: Health=${enemy.health.toFixed(1)}/${enemy.maxHealth.toFixed(1)}, Damage=${enemy.damage.toFixed(1)}, Speed=${enemy.moveSpeed.toFixed(4)}, PowerScaling=${enemy.powerScaling.toFixed(2)}`);
+            
             return enemy;
         }
         
         // Create a new enemy if none available
-        switch (type) {
-            case EnemyType.FAST:
-                return new FastEnemy(scene, position, player);
-            case EnemyType.TANKY:
-                return new TankyEnemy(scene, position, player);
-            case EnemyType.RANGED:
-                return new RangedEnemy(scene, position, player);
-            default:
-                return new BasicEnemy(scene, position, player);
-        }
+        const newEnemy = (() => {
+            switch (type) {
+                case EnemyType.FAST:
+                    return new FastEnemy(scene, position, player, powerScaling);
+                case EnemyType.TANKY:
+                    return new TankyEnemy(scene, position, player, powerScaling);
+                case EnemyType.RANGED:
+                    return new RangedEnemy(scene, position, player, powerScaling);
+                default:
+                    return new BasicEnemy(scene, position, player, powerScaling);
+            }
+        })();
+        
+        // Log newly created enemy stats
+        console.log(`Created new ${newEnemy.type} enemy: Health=${newEnemy.health.toFixed(1)}/${newEnemy.maxHealth.toFixed(1)}, Damage=${newEnemy.damage.toFixed(1)}, Speed=${newEnemy.moveSpeed.toFixed(4)}, PowerScaling=${newEnemy.powerScaling.toFixed(2)}`);
+        
+        return newEnemy;
     }
     
     release(enemy) {
         if (enemy && enemy.type && this.pools[enemy.type]) {
             // Reset minimal enemy state - leave ID and position intact
             enemy.isAlive = false;
+            
+            // Clean up power ring if it exists
+            if (enemy.powerRing) {
+                if (enemy.mesh) {
+                    enemy.mesh.remove(enemy.powerRing);
+                }
+                enemy.scene.remove(enemy.powerRing);
+                if (enemy.powerRing.geometry) enemy.powerRing.geometry.dispose();
+                if (enemy.powerRing.material) enemy.powerRing.material.dispose();
+                enemy.powerRing = null;
+            }
             
             if (enemy.mesh) {
                 enemy.mesh.visible = false;
@@ -78,7 +100,7 @@ export const enemyPool = new EnemyPool();
 
 // Base Enemy class
 export class BaseEnemy {
-    constructor(scene, position, player) {
+    constructor(scene, position, player, powerScaling = 1.0) {
         this.scene = scene;
         this.player = player;
         
@@ -87,9 +109,11 @@ export class BaseEnemy {
         
         // Default enemy values
         this.isAlive = true;
-        this.health = 30;
-        this.maxHealth = 30;
-        this.damage = 10;
+        this.baseHealth = 30; // Store base values
+        this.baseDamage = 10;
+        this.health = this.baseHealth * powerScaling;
+        this.maxHealth = this.baseHealth * powerScaling;
+        this.damage = this.baseDamage * powerScaling;
         this.moveSpeed = 0.015;
         this.attackRange = 2;
         this.attackCooldown = 1000; // ms
@@ -99,13 +123,16 @@ export class BaseEnemy {
         this.minimumDistance = 1.5; // Minimum distance to maintain from player
         this.maxSpeedMultiplier = 1.0; // Cap on speed multiplier to prevent excessive speed
         
+        // Store the power scaling factor
+        this.powerScaling = powerScaling;
+        
         // Create mesh if position is provided
         if (position) {
-            this.createEnemyMesh(position);
+            this.createEnemyMesh(position, powerScaling);
         }
     }
     
-    createEnemyMesh(position) {
+    createEnemyMesh(position, powerScaling) {
         // Base implementation - should be overridden by subclasses
         const geometry = new THREE.ConeGeometry(0.5, 1.5, 8);
         const material = new THREE.MeshStandardMaterial({ color: this.defaultColor });
@@ -123,10 +150,40 @@ export class BaseEnemy {
         this.scene.add(this.mesh);
     }
     
-    reset(position) {
+    reset(position, powerScaling = 1.0) {
+        // Clean up any existing power ring
+        if (this.powerRing) {
+            if (this.mesh) {
+                this.mesh.remove(this.powerRing);
+            }
+            this.scene.remove(this.powerRing);
+            if (this.powerRing.geometry) this.powerRing.geometry.dispose();
+            if (this.powerRing.material) this.powerRing.material.dispose();
+            this.powerRing = null;
+        }
+        
         // Reset enemy state when pulled from pool
         this.isAlive = true;
-        this.health = this.maxHealth || 30;
+        
+        // Update power scaling
+        this.powerScaling = powerScaling;
+        
+        // Apply power scaling to stats using base values if available
+        if (this.baseHealth) {
+            this.maxHealth = this.baseHealth * powerScaling;
+            this.health = this.maxHealth;
+        } else {
+            // Fallback for enemies without base values
+            this.maxHealth = 30 * powerScaling;
+            this.health = this.maxHealth;
+        }
+        
+        if (this.baseDamage) {
+            this.damage = this.baseDamage * powerScaling;
+        } else {
+            this.damage = 10 * powerScaling;
+        }
+        
         this.lastAttackTime = 0;
         
         // Don't reset the ID - we want to keep the same ID for position tracking
@@ -175,7 +232,7 @@ export class BaseEnemy {
             }
         } else if (position) {
             // Create a new mesh if needed
-            this.createEnemyMesh(position);
+            this.createEnemyMesh(position, powerScaling);
         }
     }
     
@@ -371,16 +428,23 @@ export class BaseEnemy {
 
 // Basic Enemy - The original enemy type (red cone)
 export class BasicEnemy extends BaseEnemy {
-    constructor(scene, position, player) {
-        super(scene, position, player);
+    constructor(scene, position, player, powerScaling = 1.0) {
+        super(scene, position, player, powerScaling);
         
-        // Basic enemy stats
-        this.health = 40;
-        this.maxHealth = 40;
-        this.damage = 8;
-        this.moveSpeed = 0.015;
-        this.experienceValue = 20;
-        this.attackCooldown = 1200;
+        // Store base stats
+        this.baseHealth = 40;
+        this.baseDamage = 8;
+        this.baseMovespeed = 0.015;
+        this.baseExperienceValue = 20;
+        this.baseAttackCooldown = 1200;
+        
+        // Apply power scaling
+        this.health = this.baseHealth * powerScaling;
+        this.maxHealth = this.baseHealth * powerScaling;
+        this.damage = this.baseDamage * powerScaling;
+        this.moveSpeed = this.baseMovespeed; // Don't scale movement speed
+        this.experienceValue = this.baseExperienceValue;
+        this.attackCooldown = this.baseAttackCooldown; // Don't scale cooldown
         this.type = EnemyType.BASIC;
         this.defaultColor = 0xff0000; // Red
         this.minimumDistance = 1.8; // Greater minimum distance for cone enemies
@@ -388,14 +452,31 @@ export class BasicEnemy extends BaseEnemy {
         
         // Create mesh if not created by base class
         if (!this.mesh && position) {
-            this.createEnemyMesh(position);
+            this.createEnemyMesh(position, powerScaling);
         }
     }
     
-    createEnemyMesh(position) {
+    createEnemyMesh(position, powerScaling) {
         // Basic enemy is a red cone
         const geometry = new THREE.ConeGeometry(0.5, 1.5, 8);
         const material = new THREE.MeshStandardMaterial({ color: this.defaultColor });
+        
+        // Add enhanced glow effect for powered up enemies
+        if (powerScaling > 1.0) {
+            material.emissive = new THREE.Color(this.defaultColor);
+            material.emissiveIntensity = Math.min((powerScaling - 1) * 0.5, 0.7); // Intensity based on scaling
+            
+            // Add outline glow ring to indicate power
+            const ringGeometry = new THREE.TorusGeometry(0.7, 0.05, 8, 24);
+            const ringMaterial = new THREE.MeshBasicMaterial({
+                color: 0xffff00,
+                transparent: true,
+                opacity: 0.7
+            });
+            this.powerRing = new THREE.Mesh(ringGeometry, ringMaterial);
+            this.powerRing.rotation.x = Math.PI / 2; // Align with ground
+        }
+        
         this.mesh = new THREE.Mesh(geometry, material);
         this.mesh.castShadow = true;
         
@@ -406,6 +487,17 @@ export class BasicEnemy extends BaseEnemy {
         // Rotation - cone pointing up
         this.mesh.rotation.x = Math.PI;
         
+        // Add power ring if enemy is powered up
+        if (this.powerRing) {
+            this.powerRing.position.copy(position);
+            this.powerRing.position.y = 0.1; // Just above ground
+            this.scene.add(this.powerRing);
+            
+            // Attach the ring to the enemy for movement
+            this.mesh.add(this.powerRing);
+            this.powerRing.position.set(0, -0.65, 0); // Position relative to mesh
+        }
+        
         // Add to scene
         this.scene.add(this.mesh);
     }
@@ -413,17 +505,25 @@ export class BasicEnemy extends BaseEnemy {
 
 // Fast Enemy - Fast but weak (blue cube)
 export class FastEnemy extends BaseEnemy {
-    constructor(scene, position, player) {
-        super(scene, position, player);
+    constructor(scene, position, player, powerScaling = 1.0) {
+        super(scene, position, player, powerScaling);
         
-        // Fast enemy stats - high speed, low health and damage
-        this.health = 15;
-        this.maxHealth = 15;
-        this.damage = 5;
-        this.moveSpeed = 0.022; // Reduced from 0.03 to be more manageable
-        this.experienceValue = 15;
-        this.attackCooldown = 500; // Reduced from 800ms to 500ms
-        this.attackRange = 3; // Increased from 2 to 3
+        // Store base stats
+        this.baseHealth = 15;
+        this.baseDamage = 5;
+        this.baseMovespeed = 0.022;
+        this.baseExperienceValue = 15;
+        this.baseAttackCooldown = 500;
+        this.baseAttackRange = 3;
+        
+        // Apply power scaling
+        this.health = this.baseHealth * powerScaling;
+        this.maxHealth = this.baseHealth * powerScaling;
+        this.damage = this.baseDamage * powerScaling;
+        this.moveSpeed = this.baseMovespeed; // Don't scale movement speed
+        this.experienceValue = this.baseExperienceValue;
+        this.attackCooldown = this.baseAttackCooldown; // Don't scale cooldown
+        this.attackRange = this.baseAttackRange;
         this.type = EnemyType.FAST;
         this.defaultColor = 0x3498db; // Blue
         this.minimumDistance = 2.0; // Greater minimum distance for fast enemies
@@ -431,20 +531,48 @@ export class FastEnemy extends BaseEnemy {
         
         // Create mesh if not created by base class
         if (!this.mesh && position) {
-            this.createEnemyMesh(position);
+            this.createEnemyMesh(position, powerScaling);
         }
     }
     
-    createEnemyMesh(position) {
+    createEnemyMesh(position, powerScaling) {
         // Fast enemy is a blue cube
         const geometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
         const material = new THREE.MeshStandardMaterial({ color: this.defaultColor });
+        
+        // Add enhanced glow effect for powered up enemies
+        if (powerScaling > 1.0) {
+            material.emissive = new THREE.Color(this.defaultColor);
+            material.emissiveIntensity = Math.min((powerScaling - 1) * 0.5, 0.7); // Intensity based on scaling
+            
+            // Add outline glow ring to indicate power
+            const ringGeometry = new THREE.TorusGeometry(0.6, 0.05, 8, 24);
+            const ringMaterial = new THREE.MeshBasicMaterial({
+                color: 0xffff00,
+                transparent: true,
+                opacity: 0.7
+            });
+            this.powerRing = new THREE.Mesh(ringGeometry, ringMaterial);
+            this.powerRing.rotation.x = Math.PI / 2; // Align with ground
+        }
+        
         this.mesh = new THREE.Mesh(geometry, material);
         this.mesh.castShadow = true;
         
         // Position the mesh
         this.mesh.position.copy(position);
         this.mesh.position.y = 0.4; // Half height off the ground
+        
+        // Add power ring if enemy is powered up
+        if (this.powerRing) {
+            this.powerRing.position.copy(position);
+            this.powerRing.position.y = 0.1; // Just above ground
+            this.scene.add(this.powerRing);
+            
+            // Attach the ring to the enemy for movement
+            this.mesh.add(this.powerRing);
+            this.powerRing.position.set(0, -0.3, 0); // Position relative to mesh
+        }
         
         // Add to scene
         this.scene.add(this.mesh);
@@ -457,36 +585,72 @@ export class FastEnemy extends BaseEnemy {
 
 // Tanky Enemy - Slow but strong (green cylinder)
 export class TankyEnemy extends BaseEnemy {
-    constructor(scene, position, player) {
-        super(scene, position, player);
+    constructor(scene, position, player, powerScaling = 1.0) {
+        super(scene, position, player, powerScaling);
         
-        // Tanky enemy stats - high health and damage, low speed
-        this.health = 80;
-        this.maxHealth = 80;
-        this.damage = 25;
-        this.moveSpeed = 0.008; // Half as fast
-        this.experienceValue = 30;
-        this.attackCooldown = 1500; // Slower attacks
-        this.attackRange = 2; // Slightly longer attack range
+        // Store base stats
+        this.baseHealth = 80;
+        this.baseDamage = 25;
+        this.baseMovespeed = 0.008;
+        this.baseExperienceValue = 30;
+        this.baseAttackCooldown = 1500;
+        this.baseAttackRange = 2;
+        
+        // Apply power scaling
+        this.health = this.baseHealth * powerScaling;
+        this.maxHealth = this.baseHealth * powerScaling;
+        this.damage = this.baseDamage * powerScaling;
+        this.moveSpeed = this.baseMovespeed; // Don't scale movement speed
+        this.experienceValue = this.baseExperienceValue;
+        this.attackCooldown = this.baseAttackCooldown; // Don't scale cooldown
+        this.attackRange = this.baseAttackRange;
         this.type = EnemyType.TANKY;
         this.defaultColor = 0x2ecc71; // Green
         
         // Create mesh if not created by base class
         if (!this.mesh && position) {
-            this.createEnemyMesh(position);
+            this.createEnemyMesh(position, powerScaling);
         }
     }
     
-    createEnemyMesh(position) {
+    createEnemyMesh(position, powerScaling) {
         // Tanky enemy is a green cylinder
         const geometry = new THREE.CylinderGeometry(0.7, 0.7, 1.8, 16);
         const material = new THREE.MeshStandardMaterial({ color: this.defaultColor });
+        
+        // Add enhanced glow effect for powered up enemies
+        if (powerScaling > 1.0) {
+            material.emissive = new THREE.Color(this.defaultColor);
+            material.emissiveIntensity = Math.min((powerScaling - 1) * 0.5, 0.7); // Intensity based on scaling
+            
+            // Add outline glow ring to indicate power
+            const ringGeometry = new THREE.TorusGeometry(0.9, 0.05, 8, 24);
+            const ringMaterial = new THREE.MeshBasicMaterial({
+                color: 0xffff00,
+                transparent: true,
+                opacity: 0.7
+            });
+            this.powerRing = new THREE.Mesh(ringGeometry, ringMaterial);
+            this.powerRing.rotation.x = Math.PI / 2; // Align with ground
+        }
+        
         this.mesh = new THREE.Mesh(geometry, material);
         this.mesh.castShadow = true;
         
         // Position the mesh
         this.mesh.position.copy(position);
         this.mesh.position.y = 0.9; // Half height off the ground
+        
+        // Add power ring if enemy is powered up
+        if (this.powerRing) {
+            this.powerRing.position.copy(position);
+            this.powerRing.position.y = 0.1; // Just above ground
+            this.scene.add(this.powerRing);
+            
+            // Attach the ring to the enemy for movement
+            this.mesh.add(this.powerRing);
+            this.powerRing.position.set(0, -0.8, 0); // Position relative to mesh
+        }
         
         // Add to scene
         this.scene.add(this.mesh);
@@ -499,38 +663,75 @@ export class TankyEnemy extends BaseEnemy {
 
 // Ranged Enemy - Attacks from distance (purple sphere)
 export class RangedEnemy extends BaseEnemy {
-    constructor(scene, position, player) {
-        super(scene, position, player);
+    constructor(scene, position, player, powerScaling = 1.0) {
+        super(scene, position, player, powerScaling);
         
-        // Ranged enemy stats
-        this.health = 25;
-        this.maxHealth = 25;
-        this.damage = 10;
-        this.moveSpeed = 0.012;
-        this.experienceValue = 25;
-        this.attackCooldown = 1000;
-        this.attackRange = 16;
-        this.preferredDistance = 12;
+        // Store base stats
+        this.baseHealth = 25;
+        this.baseDamage = 10;
+        this.baseMovespeed = 0.012;
+        this.baseExperienceValue = 25;
+        this.baseAttackCooldown = 1000;
+        this.baseAttackRange = 16;
+        this.basePreferredDistance = 12;
+        
+        // Apply power scaling
+        this.health = this.baseHealth * powerScaling;
+        this.maxHealth = this.baseHealth * powerScaling;
+        this.damage = this.baseDamage * powerScaling;
+        this.moveSpeed = this.baseMovespeed; // Don't scale movement speed
+        this.experienceValue = this.baseExperienceValue;
+        this.attackCooldown = this.baseAttackCooldown; // Don't scale cooldown
+        this.attackRange = this.baseAttackRange;
+        this.preferredDistance = this.basePreferredDistance;
         this.type = EnemyType.RANGED;
         this.defaultColor = 0x9b59b6; // Purple
         this.projectiles = [];
         
         // Create mesh if not created by base class
         if (!this.mesh && position) {
-            this.createEnemyMesh(position);
+            this.createEnemyMesh(position, powerScaling);
         }
     }
     
-    createEnemyMesh(position) {
+    createEnemyMesh(position, powerScaling) {
         // Ranged enemy is a purple sphere
         const geometry = new THREE.SphereGeometry(0.5, 16, 16);
         const material = new THREE.MeshStandardMaterial({ color: this.defaultColor });
+        
+        // Add enhanced glow effect for powered up enemies
+        if (powerScaling > 1.0) {
+            material.emissive = new THREE.Color(this.defaultColor);
+            material.emissiveIntensity = Math.min((powerScaling - 1) * 0.5, 0.7); // Intensity based on scaling
+            
+            // Add outline glow ring to indicate power
+            const ringGeometry = new THREE.TorusGeometry(0.7, 0.05, 8, 24);
+            const ringMaterial = new THREE.MeshBasicMaterial({
+                color: 0xffff00,
+                transparent: true,
+                opacity: 0.7
+            });
+            this.powerRing = new THREE.Mesh(ringGeometry, ringMaterial);
+            this.powerRing.rotation.x = Math.PI / 2; // Align with ground
+        }
+        
         this.mesh = new THREE.Mesh(geometry, material);
         this.mesh.castShadow = true;
         
         // Position the mesh
         this.mesh.position.copy(position);
         this.mesh.position.y = 0.5; // Half height off the ground
+        
+        // Add power ring if enemy is powered up
+        if (this.powerRing) {
+            this.powerRing.position.copy(position);
+            this.powerRing.position.y = 0.1; // Just above ground
+            this.scene.add(this.powerRing);
+            
+            // Attach the ring to the enemy for movement
+            this.mesh.add(this.powerRing);
+            this.powerRing.position.set(0, -0.4, 0); // Position relative to mesh
+        }
         
         // Add to scene
         this.scene.add(this.mesh);

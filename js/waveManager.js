@@ -28,6 +28,9 @@ export class WaveManager {
         this.currentBoss = null;
         this.isBossWave = false;
         
+        // Enemy power scaling - increases after each boss wave
+        this.enemyPowerScaling = 1.0;
+        
         // Store percentages of enemy types by wave
         this.enemyDistribution = {
             basic: { min: 100, max: 30 },    // Starts at 100%, decreases to 30%
@@ -141,6 +144,9 @@ export class WaveManager {
     startNextWave() {
         this.currentWave++;
         this.waveActive = true;
+        
+        // Log the current power scaling factor for debugging
+        console.log(`Starting Wave ${this.currentWave} with enemy power scaling: ${this.enemyPowerScaling.toFixed(2)}`);
         
         // Check if this is a boss wave (every 5th wave)
         this.isBossWave = this.currentWave % this.bossWaveFrequency === 0;
@@ -314,7 +320,8 @@ export class WaveManager {
                 const enemyType = this.getRandomEnemyType();
                 
                 // Get enemy from pool (or create new if none available)
-                const enemy = enemyPool.get(enemyType, this.scene, position, this.player);
+                // Pass the current power scaling factor to apply buffs
+                const enemy = enemyPool.get(enemyType, this.scene, position, this.player, this.enemyPowerScaling);
                 
                 // Ensure enemy is properly positioned at ground level based on its mesh type
                 switch(enemy.type) {
@@ -809,6 +816,7 @@ export class WaveManager {
         this.enemiesRemaining = 0;
         this.waveActive = false;
         this.waveTimerActive = false;
+        this.enemyPowerScaling = 1.0; // Reset enemy power scaling
         
         if (this.waveTimeout) {
             clearTimeout(this.waveTimeout);
@@ -1028,8 +1036,12 @@ export class WaveManager {
         // Calculate boss reward based on wave number
         const experienceReward = 500 * Math.ceil(this.currentWave / this.bossWaveFrequency);
         
-        // Give experience to player
-        this.player.addExperience(experienceReward);
+        // Give experience to player (using the correct method)
+        this.player.gainExperience(experienceReward);
+        
+        // Increase enemy power scaling by 20% after each boss
+        this.enemyPowerScaling *= 1.2;
+        console.log(`Enemies powered up! New scaling factor: ${this.enemyPowerScaling.toFixed(2)}`);
         
         // Display reward notification
         const notification = document.createElement('div');
@@ -1048,7 +1060,34 @@ export class WaveManager {
         notification.style.transition = 'opacity 1s';
         document.body.appendChild(notification);
         
-        // Fade out and remove
+        // Show enemy power up notification after the reward notification
+        setTimeout(() => {
+            const powerUpNotification = document.createElement('div');
+            powerUpNotification.textContent = `Enemies powered up by 20%!`;
+            powerUpNotification.style.position = 'absolute';
+            powerUpNotification.style.top = '60%';
+            powerUpNotification.style.left = '50%';
+            powerUpNotification.style.transform = 'translate(-50%, -50%)';
+            powerUpNotification.style.color = '#ff5555';
+            powerUpNotification.style.fontFamily = 'Arial, sans-serif';
+            powerUpNotification.style.fontSize = '28px';
+            powerUpNotification.style.fontWeight = 'bold';
+            powerUpNotification.style.textShadow = '0 0 8px #ff0000, 0 0 16px #ff0000';
+            powerUpNotification.style.zIndex = '200';
+            powerUpNotification.style.opacity = '1';
+            powerUpNotification.style.transition = 'opacity 1s';
+            document.body.appendChild(powerUpNotification);
+            
+            // Fade out and remove power up notification
+            setTimeout(() => {
+                powerUpNotification.style.opacity = '0';
+                setTimeout(() => {
+                    document.body.removeChild(powerUpNotification);
+                }, 1000);
+            }, 2000);
+        }, 1000);
+        
+        // Fade out and remove reward notification
         setTimeout(() => {
             notification.style.opacity = '0';
             setTimeout(() => {

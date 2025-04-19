@@ -52,29 +52,35 @@ export class WaveManager {
         this.waveContainer.style.position = 'absolute';
         this.waveContainer.style.top = '20px';
         this.waveContainer.style.right = '20px';
-        this.waveContainer.style.color = 'white';
-        this.waveContainer.style.fontFamily = 'Arial, sans-serif';
-        this.waveContainer.style.fontSize = '24px';
+        this.waveContainer.style.color = 'var(--white)';
+        this.waveContainer.style.fontFamily = '"Exo 2", sans-serif';
+        this.waveContainer.style.fontSize = '20px';
         this.waveContainer.style.fontWeight = 'bold';
         this.waveContainer.style.textAlign = 'center';
         this.waveContainer.style.padding = '10px 20px';
-        this.waveContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
-        this.waveContainer.style.borderRadius = '5px';
+        this.waveContainer.style.backgroundColor = 'var(--panel-bg)';
+        this.waveContainer.style.backdropFilter = 'blur(4px)';
+        this.waveContainer.style.borderRadius = '16px';
+        this.waveContainer.style.boxShadow = 'var(--shadow)';
+        this.waveContainer.style.border = '1px solid rgba(255, 255, 255, 0.18)';
         this.waveContainer.style.zIndex = '100';
         document.body.appendChild(this.waveContainer);
         
         // Wave timer display
         this.timerContainer = document.createElement('div');
         this.timerContainer.style.position = 'absolute';
-        this.timerContainer.style.top = '70px';
+        this.timerContainer.style.top = '80px';
         this.timerContainer.style.right = '20px';
-        this.timerContainer.style.color = 'white';
-        this.timerContainer.style.fontFamily = 'Arial, sans-serif';
-        this.timerContainer.style.fontSize = '18px';
+        this.timerContainer.style.color = 'var(--white)';
+        this.timerContainer.style.fontFamily = '"Exo 2", sans-serif';
+        this.timerContainer.style.fontSize = '16px';
         this.timerContainer.style.textAlign = 'center';
-        this.timerContainer.style.padding = '5px 15px';
-        this.timerContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
-        this.timerContainer.style.borderRadius = '5px';
+        this.timerContainer.style.padding = '8px 16px';
+        this.timerContainer.style.backgroundColor = 'var(--panel-bg)';
+        this.timerContainer.style.backdropFilter = 'blur(4px)';
+        this.timerContainer.style.borderRadius = '16px';
+        this.timerContainer.style.boxShadow = 'var(--shadow)';
+        this.timerContainer.style.border = '1px solid rgba(255, 255, 255, 0.18)';
         this.timerContainer.style.zIndex = '100';
         this.timerContainer.style.display = 'none'; // Hide initially
         document.body.appendChild(this.timerContainer);
@@ -88,35 +94,35 @@ export class WaveManager {
             if (this.isBossWave && this.currentBoss) {
                 // Show boss health and wave info
                 this.waveContainer.textContent = `BOSS WAVE ${this.currentWave} - Health: ${this.currentBoss.health}`;
-                this.waveContainer.style.color = '#ff5555';
+                this.waveContainer.style.color = 'var(--pink)';
             } else {
-                this.waveContainer.textContent = `Wave ${this.currentWave} - Enemies: ${this.enemiesRemaining}`;
-                this.waveContainer.style.color = 'white';
+                this.waveContainer.textContent = `WAVE ${this.currentWave} - Enemies: ${this.enemiesRemaining}`;
+                this.waveContainer.style.color = 'var(--white)';
             }
             
             // Show timer if wave is active
             if (this.waveTimerActive) {
                 this.timerContainer.style.display = 'block';
                 const timeRemaining = Math.ceil(this.waveTimer / 1000);
-                this.timerContainer.textContent = `Wave time left: ${timeRemaining}s`;
+                this.timerContainer.textContent = `TIME LEFT: ${timeRemaining}s`;
                 
                 // Change color to red when less than 10 seconds remain
                 if (timeRemaining <= 10) {
-                    this.timerContainer.style.color = '#ff5555';
+                    this.timerContainer.style.color = 'var(--pink)';
                 } else {
-                    this.timerContainer.style.color = 'white';
+                    this.timerContainer.style.color = 'var(--white)';
                 }
             } else {
                 this.timerContainer.style.display = 'none';
             }
         } else if (this.currentWave === 0) {
-            this.waveContainer.textContent = 'Press "Space" to Start';
-            this.waveContainer.style.color = 'white';
+            this.waveContainer.textContent = 'PRESS "SPACE" TO START';
+            this.waveContainer.style.color = 'var(--light-brown)';
             this.timerContainer.style.display = 'none';
         } else {
             // For wave complete, don't mention countdown since it's immediate
-            this.waveContainer.textContent = `Wave ${this.currentWave} Complete!`;
-            this.waveContainer.style.color = 'white';
+            this.waveContainer.textContent = `WAVE ${this.currentWave} COMPLETE!`;
+            this.waveContainer.style.color = 'var(--light-brown)';
             this.timerContainer.style.display = 'none';
         }
     }
@@ -203,19 +209,25 @@ export class WaveManager {
     showWaveNotification() {
         // Create notification element
         const notification = document.createElement('div');
-        notification.textContent = `Wave ${this.currentWave}`;
+        notification.textContent = `WAVE ${this.currentWave}`;
         notification.style.position = 'absolute';
         notification.style.top = '50%';
         notification.style.left = '50%';
         notification.style.transform = 'translate(-50%, -50%)';
-        notification.style.color = 'white';
-        notification.style.fontFamily = 'Arial, sans-serif';
+        notification.style.color = 'var(--white)';
+        notification.style.fontFamily = '"Exo 2", sans-serif';
         notification.style.fontSize = '48px';
         notification.style.fontWeight = 'bold';
-        notification.style.textShadow = '2px 2px 4px rgba(0, 0, 0, 0.7)';
+        notification.style.textShadow = '0 0 20px rgba(76, 175, 80, 0.7)';
         notification.style.zIndex = '200';
         notification.style.opacity = '1';
         notification.style.transition = 'opacity 1s';
+        notification.style.backgroundColor = 'var(--panel-bg)';
+        notification.style.backdropFilter = 'blur(4px)';
+        notification.style.borderRadius = '16px';
+        notification.style.boxShadow = 'var(--shadow)';
+        notification.style.border = '1px solid rgba(255, 255, 255, 0.18)';
+        notification.style.padding = '15px 40px';
         document.body.appendChild(notification);
         
         // Fade out and remove
@@ -576,67 +588,215 @@ export class WaveManager {
     showBossWaveNotification() {
         // Get the boss type that will be spawned
         let bossTypeName = "BOSS";
-        let bossColor = '#ff3333';
+        let bossColor = 'var(--pink)';
         let bossSubtitle = "Prepare for battle!";
         
         // Determine boss type based on wave number
         if (this.currentWave % 15 === 0) {
             bossTypeName = "TITAN BOSS";
-            bossColor = '#ff3300';
+            bossColor = 'var(--pink)';
             bossSubtitle = "A mighty foe approaches!";
         } else if (this.currentWave % 15 === 5) {
             bossTypeName = "SORCERER BOSS";
-            bossColor = '#9900ff';
+            bossColor = 'var(--pink)';
             bossSubtitle = "Arcane energies gather!";
         } else if (this.currentWave % 15 === 10) {
             bossTypeName = "HUNTER BOSS";
-            bossColor = '#00ff99';
+            bossColor = 'var(--pink)';
             bossSubtitle = "A deadly predator stalks you!";
         }
         
-        // Create notification element with more dramatic styling
+        // Create notification container
+        const notificationContainer = document.createElement('div');
+        notificationContainer.style.position = 'absolute';
+        notificationContainer.style.top = '50%';
+        notificationContainer.style.left = '50%';
+        notificationContainer.style.transform = 'translate(-50%, -50%)';
+        notificationContainer.style.display = 'flex';
+        notificationContainer.style.flexDirection = 'column';
+        notificationContainer.style.alignItems = 'center';
+        notificationContainer.style.backgroundColor = 'var(--panel-bg)';
+        notificationContainer.style.backdropFilter = 'blur(4px)';
+        notificationContainer.style.borderRadius = '16px';
+        notificationContainer.style.boxShadow = 'var(--shadow)';
+        notificationContainer.style.border = '1px solid rgba(255, 255, 255, 0.18)';
+        notificationContainer.style.padding = '20px 40px';
+        notificationContainer.style.zIndex = '200';
+        notificationContainer.style.opacity = '1';
+        notificationContainer.style.transition = 'opacity 1.5s';
+        document.body.appendChild(notificationContainer);
+        
+        // Title
         const notification = document.createElement('div');
         notification.textContent = `${bossTypeName} ${Math.ceil(this.currentWave / this.bossWaveFrequency)}`;
-        notification.style.position = 'absolute';
-        notification.style.top = '50%';
-        notification.style.left = '50%';
-        notification.style.transform = 'translate(-50%, -50%)';
         notification.style.color = bossColor;
-        notification.style.fontFamily = 'Arial, sans-serif';
-        notification.style.fontSize = '64px';
+        notification.style.fontFamily = '"Exo 2", sans-serif';
+        notification.style.fontSize = '48px';
         notification.style.fontWeight = 'bold';
-        notification.style.textShadow = `0 0 10px ${bossColor}, 0 0 20px ${bossColor}`;
-        notification.style.zIndex = '200';
-        notification.style.opacity = '1';
-        notification.style.transition = 'opacity 1.5s';
-        document.body.appendChild(notification);
+        notification.style.textShadow = '0 0 10px rgba(228, 147, 179, 0.7)';
+        notificationContainer.appendChild(notification);
         
-        // Add a subtitle
+        // Divider
+        const divider = document.createElement('div');
+        divider.style.width = '80%';
+        divider.style.height = '2px';
+        divider.style.background = 'linear-gradient(90deg, transparent, var(--white), transparent)';
+        divider.style.margin = '10px auto';
+        divider.style.opacity = '0.5';
+        notificationContainer.appendChild(divider);
+        
+        // Subtitle
         const subtitle = document.createElement('div');
         subtitle.textContent = bossSubtitle;
-        subtitle.style.position = 'absolute';
-        subtitle.style.top = 'calc(50% + 70px)';
-        subtitle.style.left = '50%';
-        subtitle.style.transform = 'translateX(-50%)';
-        subtitle.style.color = '#ffcc00';
-        subtitle.style.fontFamily = 'Arial, sans-serif';
-        subtitle.style.fontSize = '32px';
+        subtitle.style.color = 'var(--light-brown)';
+        subtitle.style.fontFamily = '"Exo 2", sans-serif';
+        subtitle.style.fontSize = '24px';
         subtitle.style.fontWeight = 'bold';
-        subtitle.style.textShadow = '0 0 6px #ff9900, 0 0 12px #ff9900';
-        subtitle.style.zIndex = '200';
-        subtitle.style.opacity = '1';
-        subtitle.style.transition = 'opacity 1.5s';
-        document.body.appendChild(subtitle);
+        subtitle.style.textShadow = '0 0 10px rgba(212, 188, 145, 0.5)';
+        notificationContainer.appendChild(subtitle);
+        
+        // Fade out and remove
+        setTimeout(() => {
+            notificationContainer.style.opacity = '0';
+            setTimeout(() => {
+                document.body.removeChild(notificationContainer);
+            }, 1500);
+        }, 3000);
+    }
+    
+    showTimerExpiredNotification() {
+        // Create timer expired notification
+        const notification = document.createElement('div');
+        notification.textContent = "TIME'S UP! NEXT WAVE INCOMING...";
+        notification.style.position = 'absolute';
+        notification.style.top = '40%';
+        notification.style.left = '50%';
+        notification.style.transform = 'translate(-50%, -50%)';
+        notification.style.color = 'var(--pink)';
+        notification.style.fontFamily = '"Exo 2", sans-serif';
+        notification.style.fontSize = '32px';
+        notification.style.fontWeight = 'bold';
+        notification.style.textShadow = '0 0 10px rgba(228, 147, 179, 0.7)';
+        notification.style.zIndex = '200';
+        notification.style.opacity = '1';
+        notification.style.transition = 'opacity 1s';
+        notification.style.backgroundColor = 'var(--panel-bg)';
+        notification.style.backdropFilter = 'blur(4px)';
+        notification.style.borderRadius = '16px';
+        notification.style.boxShadow = 'var(--shadow)';
+        notification.style.border = '1px solid rgba(255, 255, 255, 0.18)';
+        notification.style.padding = '15px 40px';
+        document.body.appendChild(notification);
         
         // Fade out and remove
         setTimeout(() => {
             notification.style.opacity = '0';
-            subtitle.style.opacity = '0';
             setTimeout(() => {
                 document.body.removeChild(notification);
-                document.body.removeChild(subtitle);
-            }, 1500);
-        }, 2500);
+            }, 1000);
+        }, 2000);
+    }
+    
+    showBossVulnerableNotification() {
+        // Display notification that boss is now vulnerable
+        const notification = document.createElement('div');
+        notification.textContent = `TIME'S UP! BOSS IS WEAKENED!`;
+        notification.style.position = 'absolute';
+        notification.style.top = '50%';
+        notification.style.left = '50%';
+        notification.style.transform = 'translate(-50%, -50%)';
+        notification.style.color = 'var(--pink)';
+        notification.style.fontFamily = '"Exo 2", sans-serif';
+        notification.style.fontSize = '36px';
+        notification.style.fontWeight = 'bold';
+        notification.style.textShadow = '0 0 10px rgba(228, 147, 179, 0.7)';
+        notification.style.zIndex = '200';
+        notification.style.opacity = '1';
+        notification.style.transition = 'opacity 1s';
+        notification.style.backgroundColor = 'var(--panel-bg)';
+        notification.style.backdropFilter = 'blur(4px)';
+        notification.style.borderRadius = '16px';
+        notification.style.boxShadow = 'var(--shadow)';
+        notification.style.border = '1px solid rgba(255, 255, 255, 0.18)';
+        notification.style.padding = '15px 40px';
+        document.body.appendChild(notification);
+        
+        // Fade out and remove
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            setTimeout(() => {
+                document.body.removeChild(notification);
+            }, 1000);
+        }, 2000);
+    }
+    
+    givePlayerBossReward() {
+        // Calculate boss reward based on wave number
+        const experienceReward = 500 * Math.ceil(this.currentWave / this.bossWaveFrequency);
+        
+        // Give experience to player (using the correct method)
+        this.player.gainExperience(experienceReward);
+        
+        // Increase enemy power scaling by 20% after each boss
+        this.enemyPowerScaling *= 1.2;
+        console.log(`Enemies powered up! New scaling factor: ${this.enemyPowerScaling.toFixed(2)}`);
+        
+        // Create notification container
+        const notificationContainer = document.createElement('div');
+        notificationContainer.style.position = 'absolute';
+        notificationContainer.style.top = '50%';
+        notificationContainer.style.left = '50%';
+        notificationContainer.style.transform = 'translate(-50%, -50%)';
+        notificationContainer.style.display = 'flex';
+        notificationContainer.style.flexDirection = 'column';
+        notificationContainer.style.alignItems = 'center';
+        notificationContainer.style.backgroundColor = 'var(--panel-bg)';
+        notificationContainer.style.backdropFilter = 'blur(4px)';
+        notificationContainer.style.borderRadius = '16px';
+        notificationContainer.style.boxShadow = 'var(--shadow)';
+        notificationContainer.style.border = '1px solid rgba(255, 255, 255, 0.18)';
+        notificationContainer.style.padding = '20px 40px';
+        notificationContainer.style.zIndex = '200';
+        notificationContainer.style.opacity = '1';
+        notificationContainer.style.transition = 'opacity 1s';
+        document.body.appendChild(notificationContainer);
+        
+        // Title
+        const notification = document.createElement('div');
+        notification.textContent = `BOSS DEFEATED! +${experienceReward} XP`;
+        notification.style.color = 'var(--light-brown)';
+        notification.style.fontFamily = '"Exo 2", sans-serif';
+        notification.style.fontSize = '36px';
+        notification.style.fontWeight = 'bold';
+        notification.style.textShadow = '0 0 10px rgba(212, 188, 145, 0.7)';
+        notificationContainer.appendChild(notification);
+        
+        // Divider
+        const divider = document.createElement('div');
+        divider.style.width = '80%';
+        divider.style.height = '2px';
+        divider.style.background = 'linear-gradient(90deg, transparent, var(--white), transparent)';
+        divider.style.margin = '10px auto';
+        divider.style.opacity = '0.5';
+        notificationContainer.appendChild(divider);
+        
+        // Power up notification
+        const powerUpNotification = document.createElement('div');
+        powerUpNotification.textContent = `ENEMIES POWERED UP BY 20%!`;
+        powerUpNotification.style.color = 'var(--pink)';
+        powerUpNotification.style.fontFamily = '"Exo 2", sans-serif';
+        powerUpNotification.style.fontSize = '24px';
+        powerUpNotification.style.fontWeight = 'bold';
+        powerUpNotification.style.textShadow = '0 0 10px rgba(228, 147, 179, 0.7)';
+        notificationContainer.appendChild(powerUpNotification);
+        
+        // Fade out and remove
+        setTimeout(() => {
+            notificationContainer.style.opacity = '0';
+            setTimeout(() => {
+                document.body.removeChild(notificationContainer);
+            }, 1000);
+        }, 3000);
     }
     
     update(deltaTime) {
@@ -715,33 +875,6 @@ export class WaveManager {
         }
     }
     
-    showTimerExpiredNotification() {
-        // Create timer expired notification
-        const notification = document.createElement('div');
-        notification.textContent = "Time's up! Next wave incoming...";
-        notification.style.position = 'absolute';
-        notification.style.top = '40%';
-        notification.style.left = '50%';
-        notification.style.transform = 'translate(-50%, -50%)';
-        notification.style.color = '#ff5555';
-        notification.style.fontFamily = 'Arial, sans-serif';
-        notification.style.fontSize = '32px';
-        notification.style.fontWeight = 'bold';
-        notification.style.textShadow = '2px 2px 4px rgba(0, 0, 0, 0.7)';
-        notification.style.zIndex = '200';
-        notification.style.opacity = '1';
-        notification.style.transition = 'opacity 1s';
-        document.body.appendChild(notification);
-        
-        // Fade out and remove
-        setTimeout(() => {
-            notification.style.opacity = '0';
-            setTimeout(() => {
-                document.body.removeChild(notification);
-            }, 1000);
-        }, 2000);
-    }
-    
     waveComplete() {
         this.waveActive = false;
         this.waveTimerActive = false;
@@ -754,19 +887,25 @@ export class WaveManager {
         if (this.currentWave > 0) {
             // Create notification element
             const notification = document.createElement('div');
-            notification.textContent = `Wave ${this.currentWave} Complete!`;
+            notification.textContent = `WAVE ${this.currentWave} COMPLETE!`;
             notification.style.position = 'absolute';
             notification.style.top = '40%';
             notification.style.left = '50%';
             notification.style.transform = 'translate(-50%, -50%)';
-            notification.style.color = '#00ffaa';
-            notification.style.fontFamily = 'Arial, sans-serif';
+            notification.style.color = 'var(--light-brown)';
+            notification.style.fontFamily = '"Exo 2", sans-serif';
             notification.style.fontSize = '36px';
             notification.style.fontWeight = 'bold';
-            notification.style.textShadow = '2px 2px 4px rgba(0, 0, 0, 0.7)';
+            notification.style.textShadow = '0 0 10px rgba(212, 188, 145, 0.7)';
             notification.style.zIndex = '200';
             notification.style.opacity = '1';
             notification.style.transition = 'opacity 1s';
+            notification.style.backgroundColor = 'var(--panel-bg)';
+            notification.style.backdropFilter = 'blur(4px)';
+            notification.style.borderRadius = '16px';
+            notification.style.boxShadow = 'var(--shadow)';
+            notification.style.border = '1px solid rgba(255, 255, 255, 0.18)';
+            notification.style.padding = '15px 40px';
             document.body.appendChild(notification);
             
             // Fade out and remove
@@ -1003,96 +1142,5 @@ export class WaveManager {
         // Play sound
         oscillator.start();
         oscillator.stop(audioContext.currentTime + 1.5);
-    }
-    
-    showBossVulnerableNotification() {
-        // Display notification that boss is now vulnerable
-        const notification = document.createElement('div');
-        notification.textContent = `Time's up! Boss is weakened!`;
-        notification.style.position = 'absolute';
-        notification.style.top = '50%';
-        notification.style.left = '50%';
-        notification.style.transform = 'translate(-50%, -50%)';
-        notification.style.color = '#ff00ff';
-        notification.style.fontFamily = 'Arial, sans-serif';
-        notification.style.fontSize = '36px';
-        notification.style.fontWeight = 'bold';
-        notification.style.textShadow = '0 0 8px #ff00ff, 0 0 16px #ff00ff';
-        notification.style.zIndex = '200';
-        notification.style.opacity = '1';
-        notification.style.transition = 'opacity 1s';
-        document.body.appendChild(notification);
-        
-        // Fade out and remove
-        setTimeout(() => {
-            notification.style.opacity = '0';
-            setTimeout(() => {
-                document.body.removeChild(notification);
-            }, 1000);
-        }, 2000);
-    }
-    
-    givePlayerBossReward() {
-        // Calculate boss reward based on wave number
-        const experienceReward = 500 * Math.ceil(this.currentWave / this.bossWaveFrequency);
-        
-        // Give experience to player (using the correct method)
-        this.player.gainExperience(experienceReward);
-        
-        // Increase enemy power scaling by 20% after each boss
-        this.enemyPowerScaling *= 1.2;
-        console.log(`Enemies powered up! New scaling factor: ${this.enemyPowerScaling.toFixed(2)}`);
-        
-        // Display reward notification
-        const notification = document.createElement('div');
-        notification.textContent = `Boss Defeated! +${experienceReward} XP`;
-        notification.style.position = 'absolute';
-        notification.style.top = '50%';
-        notification.style.left = '50%';
-        notification.style.transform = 'translate(-50%, -50%)';
-        notification.style.color = '#00ffff';
-        notification.style.fontFamily = 'Arial, sans-serif';
-        notification.style.fontSize = '36px';
-        notification.style.fontWeight = 'bold';
-        notification.style.textShadow = '0 0 8px #00ffff, 0 0 16px #00ffff';
-        notification.style.zIndex = '200';
-        notification.style.opacity = '1';
-        notification.style.transition = 'opacity 1s';
-        document.body.appendChild(notification);
-        
-        // Show enemy power up notification after the reward notification
-        setTimeout(() => {
-            const powerUpNotification = document.createElement('div');
-            powerUpNotification.textContent = `Enemies powered up by 20%!`;
-            powerUpNotification.style.position = 'absolute';
-            powerUpNotification.style.top = '60%';
-            powerUpNotification.style.left = '50%';
-            powerUpNotification.style.transform = 'translate(-50%, -50%)';
-            powerUpNotification.style.color = '#ff5555';
-            powerUpNotification.style.fontFamily = 'Arial, sans-serif';
-            powerUpNotification.style.fontSize = '28px';
-            powerUpNotification.style.fontWeight = 'bold';
-            powerUpNotification.style.textShadow = '0 0 8px #ff0000, 0 0 16px #ff0000';
-            powerUpNotification.style.zIndex = '200';
-            powerUpNotification.style.opacity = '1';
-            powerUpNotification.style.transition = 'opacity 1s';
-            document.body.appendChild(powerUpNotification);
-            
-            // Fade out and remove power up notification
-            setTimeout(() => {
-                powerUpNotification.style.opacity = '0';
-                setTimeout(() => {
-                    document.body.removeChild(powerUpNotification);
-                }, 1000);
-            }, 2000);
-        }, 1000);
-        
-        // Fade out and remove reward notification
-        setTimeout(() => {
-            notification.style.opacity = '0';
-            setTimeout(() => {
-                document.body.removeChild(notification);
-            }, 1000);
-        }, 2000);
     }
 } 

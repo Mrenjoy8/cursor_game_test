@@ -245,7 +245,7 @@ export class BaseEnemy {
         const finalMoveZ = direction.z * finalMoveSpeed * deltaTime;
         
         // Log movement data
-        console.log(`Enemy ${this.type} - Delta: ${deltaTime.toFixed(2)}, Speed: ${finalMoveSpeed.toFixed(4)}, Movement: (${finalMoveX.toFixed(4)}, ${finalMoveZ.toFixed(4)})`);
+        // console.log(`Enemy ${this.type} - Delta: ${deltaTime.toFixed(2)}, Speed: ${finalMoveSpeed.toFixed(4)}, Movement: (${finalMoveX.toFixed(4)}, ${finalMoveZ.toFixed(4)})`);
         
         // Move towards player
         this.mesh.position.x += finalMoveX;
@@ -266,7 +266,7 @@ export class BaseEnemy {
         const finalMoveZ = -direction.z * this.moveSpeed * urgencyMultiplier * deltaTime;
         
         // Log movement data
-        console.log(`Enemy ${this.type} backing off - Delta: ${deltaTime.toFixed(2)}, Distance: ${distance.toFixed(2)}, Movement: (${finalMoveX.toFixed(4)}, ${finalMoveZ.toFixed(4)})`);
+        // console.log(`Enemy ${this.type} backing off - Delta: ${deltaTime.toFixed(2)}, Distance: ${distance.toFixed(2)}, Movement: (${finalMoveX.toFixed(4)}, ${finalMoveZ.toFixed(4)})`);
         
         // Move away from player
         this.mesh.position.x += finalMoveX;
@@ -375,11 +375,12 @@ export class BasicEnemy extends BaseEnemy {
         super(scene, position, player);
         
         // Basic enemy stats
-        this.health = 30;
-        this.maxHealth = 30;
-        this.damage = 10;
+        this.health = 40;
+        this.maxHealth = 40;
+        this.damage = 8;
         this.moveSpeed = 0.015;
         this.experienceValue = 20;
+        this.attackCooldown = 1200;
         this.type = EnemyType.BASIC;
         this.defaultColor = 0xff0000; // Red
         this.minimumDistance = 1.8; // Greater minimum distance for cone enemies
@@ -421,7 +422,8 @@ export class FastEnemy extends BaseEnemy {
         this.damage = 5;
         this.moveSpeed = 0.022; // Reduced from 0.03 to be more manageable
         this.experienceValue = 15;
-        this.attackCooldown = 800; // Attacks more frequently
+        this.attackCooldown = 500; // Reduced from 800ms to 500ms
+        this.attackRange = 3; // Increased from 2 to 3
         this.type = EnemyType.FAST;
         this.defaultColor = 0x3498db; // Blue
         this.minimumDistance = 2.0; // Greater minimum distance for fast enemies
@@ -459,9 +461,9 @@ export class TankyEnemy extends BaseEnemy {
         super(scene, position, player);
         
         // Tanky enemy stats - high health and damage, low speed
-        this.health = 75;
-        this.maxHealth = 75;
-        this.damage = 20;
+        this.health = 80;
+        this.maxHealth = 80;
+        this.damage = 25;
         this.moveSpeed = 0.008; // Half as fast
         this.experienceValue = 30;
         this.attackCooldown = 1500; // Slower attacks
@@ -503,12 +505,12 @@ export class RangedEnemy extends BaseEnemy {
         // Ranged enemy stats
         this.health = 25;
         this.maxHealth = 25;
-        this.damage = 8;
+        this.damage = 10;
         this.moveSpeed = 0.012;
         this.experienceValue = 25;
-        this.attackCooldown = 2000; // Slower attacks
-        this.attackRange = 16; // Doubled attack range for larger arena
-        this.preferredDistance = 12; // Doubled preferred distance for larger arena
+        this.attackCooldown = 1000;
+        this.attackRange = 16;
+        this.preferredDistance = 12;
         this.type = EnemyType.RANGED;
         this.defaultColor = 0x9b59b6; // Purple
         this.projectiles = [];
@@ -608,7 +610,7 @@ export class RangedEnemy extends BaseEnemy {
             this.scene,
             position,
             direction,
-            0.18,          // Slower projectile speed
+            0.25,          // Increased from 0.18 to 0.25
             0.35,          // Larger size
             this.damage,
             0xff3333,      // Bright red color for enemy projectiles

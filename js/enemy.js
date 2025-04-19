@@ -96,6 +96,8 @@ export class BaseEnemy {
         this.lastAttackTime = 0;
         this.experienceValue = 20;
         this.defaultColor = 0xff0000; // Red
+        this.minimumDistance = 1.5; // Minimum distance to maintain from player
+        this.maxSpeedMultiplier = 1.0; // Cap on speed multiplier to prevent excessive speed
         
         // Create mesh if position is provided
         if (position) {
@@ -207,11 +209,19 @@ export class BaseEnemy {
         // Calculate distance to player
         const distanceToPlayer = direction.length();
         
-        // Move towards player if not in attack range
+        // Cap deltaTime to prevent large jumps
+        const cappedDelta = Math.min(deltaTime, 100);
+        
+        // Move towards player if beyond minimum distance 
         if (distanceToPlayer > this.attackRange) {
-            this.moveTowardsPlayer(direction, distanceToPlayer, deltaTime);
-        } else {
-            // Attack player if close enough and cooldown has passed
+            this.moveTowardsPlayer(direction, distanceToPlayer, cappedDelta);
+        } 
+        // Move away from player if too close (less than minimum distance)
+        else if (distanceToPlayer < this.minimumDistance) {
+            this.moveAwayFromPlayer(direction, distanceToPlayer, cappedDelta);
+        }
+        // Attack player if in attack range and cooldown has passed
+        else {
             const currentTime = Date.now();
             if (currentTime - this.lastAttackTime > this.attackCooldown) {
                 this.attackPlayer();
@@ -223,11 +233,46 @@ export class BaseEnemy {
     moveTowardsPlayer(direction, distance, deltaTime) {
         direction.normalize();
         
+        // Apply speed cap based on distance to player (get slower when closer)
+        const speedMultiplier = Math.min(
+            this.maxSpeedMultiplier,
+            Math.max(0.5, distance / 20) // Adjust multiplier based on distance
+        );
+        
+        // Calculate final movement speed
+        const finalMoveSpeed = this.moveSpeed * speedMultiplier;
+        const finalMoveX = direction.x * finalMoveSpeed * deltaTime;
+        const finalMoveZ = direction.z * finalMoveSpeed * deltaTime;
+        
+        // Log movement data
+        console.log(`Enemy ${this.type} - Delta: ${deltaTime.toFixed(2)}, Speed: ${finalMoveSpeed.toFixed(4)}, Movement: (${finalMoveX.toFixed(4)}, ${finalMoveZ.toFixed(4)})`);
+        
         // Move towards player
-        this.mesh.position.x += direction.x * this.moveSpeed * deltaTime;
-        this.mesh.position.z += direction.z * this.moveSpeed * deltaTime;
+        this.mesh.position.x += finalMoveX;
+        this.mesh.position.z += finalMoveZ;
         
         // Face the direction of movement
+        this.faceDirection(direction);
+    }
+    
+    moveAwayFromPlayer(direction, distance, deltaTime) {
+        direction.normalize();
+        
+        // Move away faster the closer we are
+        const urgencyMultiplier = Math.max(0.5, 2 - (distance / this.minimumDistance));
+        
+        // Calculate final movement speed (away from player)
+        const finalMoveX = -direction.x * this.moveSpeed * urgencyMultiplier * deltaTime;
+        const finalMoveZ = -direction.z * this.moveSpeed * urgencyMultiplier * deltaTime;
+        
+        // Log movement data
+        console.log(`Enemy ${this.type} backing off - Delta: ${deltaTime.toFixed(2)}, Distance: ${distance.toFixed(2)}, Movement: (${finalMoveX.toFixed(4)}, ${finalMoveZ.toFixed(4)})`);
+        
+        // Move away from player
+        this.mesh.position.x += finalMoveX;
+        this.mesh.position.z += finalMoveZ;
+        
+        // Still face the player while backing up
         this.faceDirection(direction);
     }
     
@@ -337,6 +382,8 @@ export class BasicEnemy extends BaseEnemy {
         this.experienceValue = 20;
         this.type = EnemyType.BASIC;
         this.defaultColor = 0xff0000; // Red
+        this.minimumDistance = 1.8; // Greater minimum distance for cone enemies
+        this.maxSpeedMultiplier = 0.9; // Limit max speed a bit more than base
         
         // Create mesh if not created by base class
         if (!this.mesh && position) {
@@ -372,11 +419,13 @@ export class FastEnemy extends BaseEnemy {
         this.health = 15;
         this.maxHealth = 15;
         this.damage = 5;
-        this.moveSpeed = 0.03; // Twice as fast
+        this.moveSpeed = 0.022; // Reduced from 0.03 to be more manageable
         this.experienceValue = 15;
         this.attackCooldown = 800; // Attacks more frequently
         this.type = EnemyType.FAST;
         this.defaultColor = 0x3498db; // Blue
+        this.minimumDistance = 2.0; // Greater minimum distance for fast enemies
+        this.maxSpeedMultiplier = 0.85; // More limitation on max speed
         
         // Create mesh if not created by base class
         if (!this.mesh && position) {

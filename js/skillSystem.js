@@ -130,15 +130,18 @@ export class SkillSystem {
         this.container.style.top = '50%';
         this.container.style.left = '50%';
         this.container.style.transform = 'translate(-50%, -50%)';
-        this.container.style.background = 'rgba(0, 0, 0, 0.8)';
-        this.container.style.padding = '20px';
-        this.container.style.borderRadius = '10px';
-        this.container.style.color = 'white';
-        this.container.style.fontFamily = 'Arial, sans-serif';
+        this.container.style.background = 'var(--panel-bg)';
+        this.container.style.backdropFilter = 'blur(4px)';
+        this.container.style.padding = '40px';
+        this.container.style.borderRadius = '16px';
+        this.container.style.color = 'var(--white)';
+        this.container.style.fontFamily = '"Exo 2", sans-serif';
         this.container.style.zIndex = '1000';
         this.container.style.display = 'none';
         this.container.style.width = '80%';
         this.container.style.maxWidth = '800px';
+        this.container.style.boxShadow = 'var(--shadow)';
+        this.container.style.border = '1px solid rgba(255, 255, 255, 0.18)';
         document.body.appendChild(this.container);
         
         // Title
@@ -147,8 +150,20 @@ export class SkillSystem {
         title.style.textAlign = 'center';
         title.style.marginTop = '0';
         title.style.marginBottom = '20px';
-        title.style.color = '#ffcc00';
+        title.style.color = 'var(--light-brown)';
+        title.style.textShadow = '0 0 10px rgba(212, 188, 145, 0.5)';
+        title.style.fontSize = '42px';
+        title.style.fontFamily = '"Exo 2", sans-serif';
         this.container.appendChild(title);
+        
+        // Divider
+        const divider = document.createElement('div');
+        divider.style.width = '80%';
+        divider.style.height = '2px';
+        divider.style.background = 'linear-gradient(90deg, transparent, var(--white), transparent)';
+        divider.style.margin = '0 auto 30px';
+        divider.style.opacity = '0.5';
+        this.container.appendChild(divider);
         
         // Skill options container
         this.skillOptionsContainer = document.createElement('div');
@@ -173,23 +188,25 @@ export class SkillSystem {
         const shuffled = [...availableSkills].sort(() => 0.5 - Math.random());
         const skillsToOffer = shuffled.slice(0, 3);
         
-        // Create skill option cards
-        skillsToOffer.forEach(skill => {
-            const card = this.createSkillCard(skill);
-            this.skillOptionsContainer.appendChild(card);
-        });
-        
         // Add level up notification above skill cards
         const levelUpNotice = document.createElement('div');
         levelUpNotice.textContent = `LEVEL UP! (${this.player.level})`;
-        levelUpNotice.style.color = '#ffcc00';
+        levelUpNotice.style.color = 'var(--light-brown)';
         levelUpNotice.style.fontSize = '32px';
         levelUpNotice.style.fontWeight = 'bold';
         levelUpNotice.style.marginBottom = '20px';
         levelUpNotice.style.textAlign = 'center';
         levelUpNotice.style.width = '100%';
-        levelUpNotice.style.textShadow = '0 0 10px rgba(255, 204, 0, 0.7)';
+        levelUpNotice.style.textShadow = '0 0 10px rgba(212, 188, 145, 0.7)';
+        levelUpNotice.style.padding = '10px 0';
+        levelUpNotice.style.fontFamily = '"Exo 2", sans-serif';
         this.skillOptionsContainer.insertBefore(levelUpNotice, this.skillOptionsContainer.firstChild);
+        
+        // Create skill option cards
+        skillsToOffer.forEach(skill => {
+            const card = this.createSkillCard(skill);
+            this.skillOptionsContainer.appendChild(card);
+        });
         
         // Show container
         this.container.style.display = 'block';
@@ -197,43 +214,61 @@ export class SkillSystem {
     
     createSkillCard(skill) {
         const card = document.createElement('div');
-        card.style.background = 'rgba(50, 50, 80, 0.8)';
-        card.style.padding = '15px';
-        card.style.borderRadius = '8px';
+        card.style.background = 'rgba(255, 255, 255, 0.08)';
+        card.style.backdropFilter = 'blur(4px)';
+        card.style.padding = '20px';
+        card.style.borderRadius = '16px';
         card.style.cursor = 'pointer';
-        card.style.transition = 'background 0.2s';
+        card.style.transition = 'all 0.3s';
         card.style.width = 'calc(33% - 20px)';
         card.style.minWidth = '200px';
         card.style.boxSizing = 'border-box';
+        card.style.boxShadow = 'var(--shadow)';
+        card.style.border = '1px solid rgba(255, 255, 255, 0.18)';
+        card.style.fontFamily = '"Exo 2", sans-serif';
         
         // Hover effect
         card.addEventListener('mouseover', () => {
-            card.style.background = 'rgba(70, 70, 120, 0.8)';
+            card.style.transform = 'translateY(-5px)';
+            card.style.boxShadow = '0 10px 20px rgba(0, 0, 0, 0.2)';
         });
         
         card.addEventListener('mouseout', () => {
-            card.style.background = 'rgba(50, 50, 80, 0.8)';
+            card.style.transform = 'translateY(0)';
+            card.style.boxShadow = 'var(--shadow)';
         });
         
         // Icon and name container
         const header = document.createElement('div');
         header.style.display = 'flex';
         header.style.alignItems = 'center';
-        header.style.marginBottom = '10px';
+        header.style.marginBottom = '15px';
         card.appendChild(header);
         
         // Icon
         const icon = document.createElement('div');
         icon.textContent = skill.icon;
-        icon.style.fontSize = '24px';
-        icon.style.marginRight = '10px';
+        icon.style.fontSize = '28px';
+        icon.style.marginRight = '15px';
+        icon.style.width = '40px';
+        icon.style.height = '40px';
+        icon.style.borderRadius = '50%';
+        icon.style.backgroundColor = 'var(--primary-green)';
+        icon.style.display = 'flex';
+        icon.style.justifyContent = 'center';
+        icon.style.alignItems = 'center';
+        icon.style.boxShadow = 'var(--shadow)';
+        icon.style.border = '2px solid var(--white)';
         header.appendChild(icon);
         
         // Name
         const name = document.createElement('h3');
         name.textContent = skill.name;
         name.style.margin = '0';
-        name.style.color = '#ffcc00';
+        name.style.color = 'var(--pink)';
+        name.style.fontSize = '20px';
+        name.style.fontWeight = 'bold';
+        name.style.fontFamily = '"Exo 2", sans-serif';
         header.appendChild(name);
         
         // Level
@@ -241,6 +276,8 @@ export class SkillSystem {
         level.textContent = `Level ${skill.level + 1}/${skill.maxLevel}`;
         level.style.fontSize = '12px';
         level.style.marginBottom = '10px';
+        level.style.color = 'var(--light-brown)';
+        level.style.fontFamily = '"Exo 2", sans-serif';
         card.appendChild(level);
         
         // Description
@@ -248,11 +285,30 @@ export class SkillSystem {
         description.textContent = skill.description;
         description.style.margin = '0';
         description.style.fontSize = '14px';
+        description.style.color = 'var(--white)';
+        description.style.fontFamily = '"Exo 2", sans-serif';
         card.appendChild(description);
         
-        // Click handler
-        card.addEventListener('click', () => {
+        // Add a select button at the bottom that matches menu buttons
+        const selectButton = document.createElement('button');
+        selectButton.textContent = 'Select';
+        selectButton.className = 'menu-button';
+        selectButton.style.width = '100%';
+        selectButton.style.marginTop = '15px';
+        selectButton.style.padding = '10px 16px';
+        selectButton.style.fontSize = '16px';
+        selectButton.style.fontFamily = '"Exo 2", sans-serif';
+        card.appendChild(selectButton);
+        
+        // Click handlers
+        const handleSelect = () => {
             this.selectSkill(skill);
+        };
+        
+        card.addEventListener('click', handleSelect);
+        selectButton.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent triggering card click
+            handleSelect();
         });
         
         return card;

@@ -146,6 +146,22 @@ export class BaseEnemy {
         // Rotation - defaults to cone pointing up
         this.mesh.rotation.x = Math.PI;
         
+        // Add power ring if enemy is powered up
+        if (powerScaling > 1.0) {
+            material.emissive = new THREE.Color(this.defaultColor);
+            material.emissiveIntensity = Math.min((powerScaling - 1) * 0.5, 0.7); // Intensity based on scaling
+            
+            // Add outline glow ring to indicate power
+            const ringGeometry = new THREE.TorusGeometry(0.7, 0.05, 8, 24);
+            const ringMaterial = new THREE.MeshBasicMaterial({
+                color: 0xffff00,
+                transparent: true,
+                opacity: 0.7
+            });
+            this.powerRing = new THREE.Mesh(ringGeometry, ringMaterial);
+            this.powerRing.rotation.x = Math.PI / 2; // Align with ground
+        }
+        
         // Add to scene
         this.scene.add(this.mesh);
     }
@@ -206,6 +222,61 @@ export class BaseEnemy {
                 
                 this.mesh.material.opacity = 1;
                 this.mesh.material.transparent = false;
+                
+                // Add emissive glow for powered up enemies
+                if (powerScaling > 1.0) {
+                    this.mesh.material.emissive = new THREE.Color(this.defaultColor);
+                    this.mesh.material.emissiveIntensity = Math.min((powerScaling - 1) * 0.5, 0.7);
+                    
+                    // Create new power ring
+                    let ringRadius = 0.7; // Default size
+                    
+                    // Adjust ring size based on enemy type
+                    switch(this.type) {
+                        case EnemyType.FAST:
+                            ringRadius = 0.6;
+                            break;
+                        case EnemyType.TANKY:
+                            ringRadius = 0.9;
+                            break;
+                        case EnemyType.RANGED:
+                            ringRadius = 0.7;
+                            break;
+                        default: // BASIC
+                            ringRadius = 0.7;
+                    }
+                    
+                    // Create ring
+                    const ringGeometry = new THREE.TorusGeometry(ringRadius, 0.05, 8, 24);
+                    const ringMaterial = new THREE.MeshBasicMaterial({
+                        color: 0xffff00,
+                        transparent: true,
+                        opacity: 0.7
+                    });
+                    this.powerRing = new THREE.Mesh(ringGeometry, ringMaterial);
+                    this.powerRing.rotation.x = Math.PI / 2; // Align with ground
+                    
+                    // Add to mesh with proper position
+                    let ringYOffset = -0.65; // Default for BASIC
+                    
+                    // Adjust Y offset based on enemy type
+                    switch(this.type) {
+                        case EnemyType.FAST:
+                            ringYOffset = -0.3;
+                            break;
+                        case EnemyType.TANKY:
+                            ringYOffset = -0.8;
+                            break;
+                        case EnemyType.RANGED:
+                            ringYOffset = -0.4;
+                            break;
+                        default: // BASIC
+                            ringYOffset = -0.65;
+                    }
+                    
+                    this.mesh.add(this.powerRing);
+                    this.powerRing.position.set(0, ringYOffset, 0);
+                }
             }
             
             // Only update position if specifically provided
@@ -489,13 +560,10 @@ export class BasicEnemy extends BaseEnemy {
         
         // Add power ring if enemy is powered up
         if (this.powerRing) {
-            this.powerRing.position.copy(position);
-            this.powerRing.position.y = 0.1; // Just above ground
-            this.scene.add(this.powerRing);
-            
-            // Attach the ring to the enemy for movement
+            // Only add to mesh, not to scene directly
             this.mesh.add(this.powerRing);
-            this.powerRing.position.set(0, -0.65, 0); // Position relative to mesh
+            // Position relative to mesh
+            this.powerRing.position.set(0, -0.65, 0);
         }
         
         // Add to scene
@@ -565,13 +633,10 @@ export class FastEnemy extends BaseEnemy {
         
         // Add power ring if enemy is powered up
         if (this.powerRing) {
-            this.powerRing.position.copy(position);
-            this.powerRing.position.y = 0.1; // Just above ground
-            this.scene.add(this.powerRing);
-            
-            // Attach the ring to the enemy for movement
+            // Only add to mesh, not to scene directly
             this.mesh.add(this.powerRing);
-            this.powerRing.position.set(0, -0.3, 0); // Position relative to mesh
+            // Position relative to mesh
+            this.powerRing.position.set(0, -0.3, 0);
         }
         
         // Add to scene
@@ -643,13 +708,10 @@ export class TankyEnemy extends BaseEnemy {
         
         // Add power ring if enemy is powered up
         if (this.powerRing) {
-            this.powerRing.position.copy(position);
-            this.powerRing.position.y = 0.1; // Just above ground
-            this.scene.add(this.powerRing);
-            
-            // Attach the ring to the enemy for movement
+            // Only add to mesh, not to scene directly
             this.mesh.add(this.powerRing);
-            this.powerRing.position.set(0, -0.8, 0); // Position relative to mesh
+            // Position relative to mesh
+            this.powerRing.position.set(0, -0.8, 0);
         }
         
         // Add to scene
@@ -724,13 +786,10 @@ export class RangedEnemy extends BaseEnemy {
         
         // Add power ring if enemy is powered up
         if (this.powerRing) {
-            this.powerRing.position.copy(position);
-            this.powerRing.position.y = 0.1; // Just above ground
-            this.scene.add(this.powerRing);
-            
-            // Attach the ring to the enemy for movement
+            // Only add to mesh, not to scene directly
             this.mesh.add(this.powerRing);
-            this.powerRing.position.set(0, -0.4, 0); // Position relative to mesh
+            // Position relative to mesh
+            this.powerRing.position.set(0, -0.4, 0);
         }
         
         // Add to scene

@@ -211,7 +211,7 @@ export class WaveManager {
         const notification = document.createElement('div');
         notification.textContent = `WAVE ${this.currentWave}`;
         notification.style.position = 'absolute';
-        notification.style.top = '50%';
+        notification.style.top = '10%'; // Moved up from 40% to avoid overlap with wave complete at 30%
         notification.style.left = '50%';
         notification.style.transform = 'translate(-50%, -50%)';
         notification.style.color = 'var(--white)';
@@ -741,10 +741,23 @@ export class WaveManager {
         this.enemyPowerScaling *= 1.2;
         console.log(`Enemies powered up! New scaling factor: ${this.enemyPowerScaling.toFixed(2)}`);
         
+        // Check if skill selection is visible
+        const skillSelectionVisible = this.game && 
+            this.game.skillSystem && 
+            this.game.skillSystem.container && 
+            this.game.skillSystem.container.style.display === 'block';
+        
         // Create notification container
         const notificationContainer = document.createElement('div');
         notificationContainer.style.position = 'absolute';
-        notificationContainer.style.top = '50%';
+        
+        // Position notification above skill selection if it's visible
+        if (skillSelectionVisible) {
+            notificationContainer.style.top = '20%'; // Position above skill selection
+        } else {
+            notificationContainer.style.top = '50%'; // Default position
+        }
+        
         notificationContainer.style.left = '50%';
         notificationContainer.style.transform = 'translate(-50%, -50%)';
         notificationContainer.style.display = 'flex';
@@ -756,7 +769,7 @@ export class WaveManager {
         notificationContainer.style.boxShadow = 'var(--shadow)';
         notificationContainer.style.border = '1px solid rgba(255, 255, 255, 0.18)';
         notificationContainer.style.padding = '20px 40px';
-        notificationContainer.style.zIndex = '200';
+        notificationContainer.style.zIndex = '2000'; // Higher z-index to ensure it's above skill selection
         notificationContainer.style.opacity = '1';
         notificationContainer.style.transition = 'opacity 1s';
         document.body.appendChild(notificationContainer);
@@ -889,7 +902,7 @@ export class WaveManager {
             const notification = document.createElement('div');
             notification.textContent = `WAVE ${this.currentWave} COMPLETE!`;
             notification.style.position = 'absolute';
-            notification.style.top = '40%';
+            notification.style.top = '30%'; // Moved up from 40% to avoid overlap
             notification.style.left = '50%';
             notification.style.transform = 'translate(-50%, -50%)';
             notification.style.color = 'var(--light-brown)';

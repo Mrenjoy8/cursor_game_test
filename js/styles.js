@@ -13,6 +13,7 @@ export function setupGlobalStyles() {
             --pink: #e493b3;
             --bg-gradient: linear-gradient(135deg, #1c5c3c 0%, #2c7a51 100%);
             --panel-bg: rgba(255, 255, 255, 0.15);
+            --panel-bg-opaque: rgba(0, 0, 0, 0.8);
             --shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
         }
         
@@ -179,7 +180,7 @@ export function setupGlobalStyles() {
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background: var(--panel-bg);
+            background: var(--panel-bg-opaque);
             backdrop-filter: blur(8px);
             color: var(--white);
             padding: 40px;

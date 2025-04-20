@@ -105,8 +105,9 @@ export class Player {
                     if (this.animationActions['Idle']) {
                         this.playAnimation('Idle');
                     } else if (gltf.animations.length > 0) {
-                        // If no idle animation, use the first one
-                        this.playAnimation(gltf.animations[0].name);
+                        // If no Idle animation, don't automatically play any animation
+                        // Just store the available animation name(s) for use during movement
+                        console.log(`No Idle animation found. Available animations: ${gltf.animations.map(a => a.name).join(', ')}`);
                     }
                 }
             },
@@ -124,18 +125,20 @@ export class Player {
     }
     
     playAnimation(name) {
+        // Check if animation exists before attempting to play it
+        if (!this.animationActions[name]) {
+            console.warn(`Animation ${name} not found`);
+            return;
+        }
+        
         // Stop current animation
         if (this.currentAnimation) {
             this.currentAnimation.fadeOut(0.2);
         }
         
         // Start new animation
-        if (this.animationActions[name]) {
-            this.currentAnimation = this.animationActions[name];
-            this.currentAnimation.reset().fadeIn(0.2).play();
-        } else {
-            console.warn(`Animation ${name} not found`);
-        }
+        this.currentAnimation = this.animationActions[name];
+        this.currentAnimation.reset().fadeIn(0.2).play();
     }
     
     setupInputHandlers() {
@@ -194,13 +197,18 @@ export class Player {
                 break;
         }
         
-        // If no movement keys are pressed, play idle animation
+        // If no movement keys are pressed, play idle animation (only if it exists)
         if (!this.movementKeys.forward && 
             !this.movementKeys.backward && 
             !this.movementKeys.left && 
             !this.movementKeys.right) {
             if (this.animationActions['Idle']) {
                 this.playAnimation('Idle');
+            } else {
+                // If Idle doesn't exist and we're playing Run, stop it
+                if (this.currentAnimation === this.animationActions['Run']) {
+                    this.currentAnimation.stop();
+                }
             }
         }
     }
@@ -336,9 +344,16 @@ export class Player {
                 // Return to previous animation after attack completes
                 setTimeout(() => {
                     if (this.isMoving()) {
-                        this.playAnimation('Run');
-                    } else {
+                        if (this.animationActions['Run']) {
+                            this.playAnimation('Run');
+                        }
+                    } else if (this.animationActions['Idle']) {
                         this.playAnimation('Idle');
+                    } else {
+                        // If neither animation exists, stop current animation
+                        if (this.currentAnimation) {
+                            this.currentAnimation.stop();
+                        }
                     }
                 }, 500); // Adjust based on attack animation length
             }
@@ -429,9 +444,16 @@ export class Player {
                 // Return to previous animation after hit animation completes
                 setTimeout(() => {
                     if (this.isMoving()) {
-                        this.playAnimation('Run');
-                    } else {
+                        if (this.animationActions['Run']) {
+                            this.playAnimation('Run');
+                        }
+                    } else if (this.animationActions['Idle']) {
                         this.playAnimation('Idle');
+                    } else {
+                        // If neither animation exists, stop current animation
+                        if (this.currentAnimation) {
+                            this.currentAnimation.stop();
+                        }
                     }
                 }, 300); // Adjust based on hit animation length
             }

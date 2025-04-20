@@ -462,11 +462,6 @@ export class BaseEnemy {
         // Update animation mixer if it exists
         if (this.mixer) {
             this.mixer.update(deltaTime / 1000); // Convert to seconds for THREE.js
-            
-            // Ensure run animation is playing when moving
-            if (this.animationActions['Run'] && !this.currentAnimation) {
-                this.playAnimation('Run');
-            }
         }
         
         // Check model position for basic enemies - safety measure to prevent floating
@@ -495,18 +490,43 @@ export class BaseEnemy {
         // Move towards player if beyond minimum distance 
         if (distanceToPlayer > this.attackRange) {
             this.moveTowardsPlayer(direction, distanceToPlayer, cappedDelta);
+            
+            // Play run animation if available and not already playing
+            if (this.mixer && this.animationActions['Run'] && 
+                (!this.currentAnimation || this.currentAnimation !== this.animationActions['Run'])) {
+                this.playAnimation('Run');
+            }
         } 
         // Move away from player if too close (less than minimum distance)
         else if (distanceToPlayer < this.minimumDistance) {
             this.moveAwayFromPlayer(direction, distanceToPlayer, cappedDelta);
+            
+            // Play run animation if available and not already playing
+            if (this.mixer && this.animationActions['Run'] && 
+                (!this.currentAnimation || this.currentAnimation !== this.animationActions['Run'])) {
+                this.playAnimation('Run');
+            }
         }
         // Attack player if in attack range and cooldown has passed
         else {
+            // Stop run animation when in attack range and not moving
+            if (this.mixer && this.currentAnimation === this.animationActions['Run']) {
+                this.stopAnimation();
+            }
+            
             const currentTime = Date.now();
             if (currentTime - this.lastAttackTime > this.attackCooldown) {
                 this.attackPlayer();
                 this.lastAttackTime = currentTime;
             }
+        }
+    }
+    
+    stopAnimation() {
+        // Stop current animation if one is playing
+        if (this.currentAnimation) {
+            this.currentAnimation.fadeOut(0.2);
+            this.currentAnimation = null;
         }
     }
     
@@ -574,10 +594,35 @@ export class BaseEnemy {
     
     attackPlayer() {
         if (this.player) {
+            // Apply damage to player
             this.player.takeDamage(this.damage);
             
-            // Visual feedback for attack
-            this.flashColor(0xff9900); // Flash orange when attacking
+            // Visual feedback for attack - flash orange when attacking
+            this.flashColor(0xff9900);
+            
+            // Add a small "attack motion" effect - move slightly towards player
+            if (this.mesh) {
+                // Get direction to player
+                const playerPosition = this.player.getPosition();
+                const attackDirection = new THREE.Vector3();
+                attackDirection.subVectors(playerPosition, this.mesh.position);
+                attackDirection.y = 0; // Keep on xz plane
+                attackDirection.normalize();
+                
+                // Store original position
+                const originalPosition = this.mesh.position.clone();
+                
+                // Quick forward motion
+                this.mesh.position.x += attackDirection.x * 0.2;
+                this.mesh.position.z += attackDirection.z * 0.2;
+                
+                // Return to original position after short delay
+                setTimeout(() => {
+                    if (this.mesh && this.isAlive) {
+                        this.mesh.position.copy(originalPosition);
+                    }
+                }, 100);
+            }
         }
     }
     
@@ -1110,6 +1155,11 @@ export class RangedEnemy extends BaseEnemy {
         // Update projectiles
         this.updateProjectiles(deltaTime);
         
+        // Update animation mixer if it exists
+        if (this.mixer) {
+            this.mixer.update(deltaTime / 1000); // Convert to seconds for THREE.js
+        }
+        
         // Get player position
         const playerPosition = this.player.getPosition();
         
@@ -1127,6 +1177,12 @@ export class RangedEnemy extends BaseEnemy {
             this.mesh.position.x -= direction.x * this.moveSpeed * deltaTime;
             this.mesh.position.z -= direction.z * this.moveSpeed * deltaTime;
             this.faceDirection(direction);
+            
+            // Play run animation if available and not already playing
+            if (this.mixer && this.animationActions['Run'] && 
+                (!this.currentAnimation || this.currentAnimation !== this.animationActions['Run'])) {
+                this.playAnimation('Run');
+            }
         }
         // If too far, move closer
         else if (distanceToPlayer > this.attackRange) {
@@ -1134,10 +1190,21 @@ export class RangedEnemy extends BaseEnemy {
             this.mesh.position.x += direction.x * this.moveSpeed * deltaTime;
             this.mesh.position.z += direction.z * this.moveSpeed * deltaTime;
             this.faceDirection(direction);
+            
+            // Play run animation if available and not already playing
+            if (this.mixer && this.animationActions['Run'] && 
+                (!this.currentAnimation || this.currentAnimation !== this.animationActions['Run'])) {
+                this.playAnimation('Run');
+            }
         }
         // If in good range, attack
         else {
             this.faceDirection(direction);
+            
+            // Stop run animation when in attack range and not moving
+            if (this.mixer && this.currentAnimation === this.animationActions['Run']) {
+                this.stopAnimation();
+            }
             
             // Attack player if cooldown has passed
             const currentTime = Date.now();
@@ -1150,8 +1217,8 @@ export class RangedEnemy extends BaseEnemy {
     
     attackPlayer() {
         if (this.player) {
-            // Visual feedback for attack
-            this.flashColor(0xff9900); // Flash orange when attacking
+            // Visual feedback for attack - flash orange when attacking
+            this.flashColor(0xff9900);
             
             // Get direction to player
             const playerPosition = this.player.getPosition();
@@ -1159,6 +1226,23 @@ export class RangedEnemy extends BaseEnemy {
             direction.subVectors(playerPosition, this.mesh.position);
             direction.y = 0; // Keep on xz plane
             direction.normalize();
+            
+            // Add a small "attack motion" effect for ranged enemies - slight backward recoil
+            if (this.mesh) {
+                // Store original position
+                const originalPosition = this.mesh.position.clone();
+                
+                // Quick backward motion (recoil)
+                this.mesh.position.x -= direction.x * 0.15;
+                this.mesh.position.z -= direction.z * 0.15;
+                
+                // Return to original position after short delay
+                setTimeout(() => {
+                    if (this.mesh && this.isAlive) {
+                        this.mesh.position.copy(originalPosition);
+                    }
+                }, 100);
+            }
             
             // Create projectile
             this.fireProjectile(direction);

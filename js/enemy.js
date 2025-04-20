@@ -1,4 +1,5 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.module.js';
+import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.157.0/examples/jsm/loaders/GLTFLoader.js';
 import { Projectile } from './projectile.js';
 
 // EnemyType enum for wave manager to use
@@ -71,8 +72,29 @@ class EnemyPool {
             if (enemy.mesh) {
                 enemy.mesh.visible = false;
                 
-                // Ensure material color is reset to default before pooling
-                if (enemy.mesh.material) {
+                // Handle model differently than basic mesh
+                if (enemy.model) {
+                    // Reset opacity and visibility for next use
+                    enemy.model.traverse((node) => {
+                        if (node.isMesh && node.material) {
+                            node.material.opacity = 1;
+                            node.material.transparent = false;
+                            if (enemy._originalMaterials && enemy._originalMaterials.has(node)) {
+                                node.material.color.copy(enemy._originalMaterials.get(node));
+                            } else {
+                                node.material.color.setHex(enemy.defaultColor);
+                            }
+                        }
+                    });
+                    
+                    // Ensure model position is properly reset for next use
+                    if (enemy.type === EnemyType.BASIC) {
+                        enemy.model.position.y = -0.75;
+                        console.log(`Enemy returned to pool, model position reset to y=${enemy.model.position.y}`, enemy.id);
+                    }
+                }
+                // Ensure material color is reset to default before pooling for basic mesh
+                else if (enemy.mesh.material) {
                     enemy.mesh.material.color.setHex(enemy.defaultColor);
                     enemy.mesh.material.opacity = 1;
                     enemy.mesh.material.transparent = false;
@@ -87,6 +109,17 @@ class EnemyPool {
                     }
                 }
                 enemy.projectiles = [];
+            }
+            
+            // Stop any animations
+            if (enemy.mixer) {
+                // Stop all animations
+                Object.values(enemy.animationActions).forEach(action => {
+                    if (action && action.isRunning()) {
+                        action.stop();
+                    }
+                });
+                enemy.currentAnimation = null;
             }
             
             // Add to pool - preserve the enemy's identity and position
@@ -126,6 +159,12 @@ export class BaseEnemy {
         // Store the power scaling factor
         this.powerScaling = powerScaling;
         
+        // Animation properties
+        this.mixer = null;
+        this.animationActions = {};
+        this.currentAnimation = null;
+        this.model = null;
+        
         // Create mesh if position is provided
         if (position) {
             this.createEnemyMesh(position, powerScaling);
@@ -162,8 +201,78 @@ export class BaseEnemy {
             this.powerRing.rotation.x = Math.PI / 2; // Align with ground
         }
         
+        // Create a health bar
+        this.createHealthBar();
+        
         // Add to scene
         this.scene.add(this.mesh);
+    }
+    
+    createHealthBar() {
+        // Create health bar container
+        const healthBarWidth = 1.0;
+        const healthBarHeight = 0.1;
+        
+        // Background bar (black)
+        const bgGeometry = new THREE.PlaneGeometry(healthBarWidth, healthBarHeight);
+        const bgMaterial = new THREE.MeshBasicMaterial({
+            color: 0x000000,
+            transparent: true,
+            opacity: 0.5,
+            side: THREE.DoubleSide
+        });
+        this.healthBarBg = new THREE.Mesh(bgGeometry, bgMaterial);
+        
+        // Foreground bar (green)
+        const fgGeometry = new THREE.PlaneGeometry(healthBarWidth, healthBarHeight);
+        const fgMaterial = new THREE.MeshBasicMaterial({
+            color: 0x00ff00,
+            side: THREE.DoubleSide
+        });
+        this.healthBarFg = new THREE.Mesh(fgGeometry, fgMaterial);
+        this.healthBarFg.position.z = 0.01; // Slightly in front of background
+        
+        // Position the health bar container
+        this.healthBarBg.position.y = 2.0; // Above the enemy
+        this.healthBarBg.rotation.x = Math.PI / 2; // Face it toward the camera
+        
+        // Add foreground to background
+        this.healthBarBg.add(this.healthBarFg);
+        
+        // Add health bar to mesh
+        this.mesh.add(this.healthBarBg);
+        
+        // Update health bar to match initial health
+        this.updateHealthBar();
+    }
+    
+    updateHealthBar() {
+        if (this.healthBarFg) {
+            // Calculate health percentage
+            const healthPercent = this.health / this.maxHealth;
+            
+            // Update scale to reflect current health
+            this.healthBarFg.scale.x = Math.max(0, healthPercent);
+            
+            // Position on left side of bar to grow rightward
+            this.healthBarFg.position.x = (healthPercent - 1) * 0.5;
+        }
+    }
+    
+    playAnimation(name) {
+        // Check if animation exists before attempting to play it
+        if (!this.animationActions[name]) {
+            return;
+        }
+        
+        // Stop current animation
+        if (this.currentAnimation) {
+            this.currentAnimation.fadeOut(0.2);
+        }
+        
+        // Start new animation
+        this.currentAnimation = this.animationActions[name];
+        this.currentAnimation.reset().fadeIn(0.2).play();
     }
     
     reset(position, powerScaling = 1.0) {
@@ -201,6 +310,9 @@ export class BaseEnemy {
         }
         
         this.lastAttackTime = 0;
+        
+        // Update health bar to show full health
+        this.updateHealthBar();
         
         // Don't reset the ID - we want to keep the same ID for position tracking
         // this.id remains unchanged
@@ -287,6 +399,11 @@ export class BaseEnemy {
                 switch(this.type) {
                     case EnemyType.BASIC:
                         this.mesh.position.y = 0.75; // Half height for cone
+                        // Ensure model position is maintained
+                        if (this.model) {
+                            this.model.position.y = -0.75; // Reset the model's position to match initial creation
+                            console.log(`Basic enemy model position set to y=${this.model.position.y}`, this.id);
+                        }
                         break;
                     case EnemyType.FAST:
                         this.mesh.position.y = 0.4; // Half height for cube
@@ -305,6 +422,25 @@ export class BaseEnemy {
             // Create a new mesh if needed
             this.createEnemyMesh(position, powerScaling);
         }
+        
+        // If we have a model, reset its materials
+        if (this.model) {
+            this.model.traverse((node) => {
+                if (node.isMesh && node.material) {
+                    // Reset material properties
+                    node.material.opacity = 1;
+                    node.material.transparent = false;
+                    
+                    // Try to restore original color
+                    if (this._originalMaterials && this._originalMaterials.has(node)) {
+                        node.material.color.copy(this._originalMaterials.get(node));
+                    } else {
+                        // Fallback to default color
+                        node.material.color.setHex(this.defaultColor);
+                    }
+                }
+            });
+        }
     }
     
     validatePosition() {
@@ -322,6 +458,22 @@ export class BaseEnemy {
     
     update(deltaTime) {
         if (!this.isAlive) return;
+        
+        // Update animation mixer if it exists
+        if (this.mixer) {
+            this.mixer.update(deltaTime / 1000); // Convert to seconds for THREE.js
+            
+            // Ensure run animation is playing when moving
+            if (this.animationActions['Run'] && !this.currentAnimation) {
+                this.playAnimation('Run');
+            }
+        }
+        
+        // Check model position for basic enemies - safety measure to prevent floating
+        if (this.type === EnemyType.BASIC && this.model && this.model.position.y !== -0.75) {
+            this.model.position.y = -0.75;
+            console.log(`Fixed floating enemy, reset model y to -0.75`, this.id);
+        }
         
         // Validate position to prevent geometry errors
         if (!this.validatePosition()) return;
@@ -386,40 +538,38 @@ export class BaseEnemy {
     moveAwayFromPlayer(direction, distance, deltaTime) {
         direction.normalize();
         
-        // Move away faster the closer we are
-        const urgencyMultiplier = Math.max(0.5, 2 - (distance / this.minimumDistance));
-        
-        // Calculate final movement speed (away from player)
-        const finalMoveX = -direction.x * this.moveSpeed * urgencyMultiplier * deltaTime;
-        const finalMoveZ = -direction.z * this.moveSpeed * urgencyMultiplier * deltaTime;
-        
-        // Log movement data
-        // console.log(`Enemy ${this.type} backing off - Delta: ${deltaTime.toFixed(2)}, Distance: ${distance.toFixed(2)}, Movement: (${finalMoveX.toFixed(4)}, ${finalMoveZ.toFixed(4)})`);
-        
         // Move away from player
-        this.mesh.position.x += finalMoveX;
-        this.mesh.position.z += finalMoveZ;
+        this.mesh.position.x -= direction.x * this.moveSpeed * deltaTime;
+        this.mesh.position.z -= direction.z * this.moveSpeed * deltaTime;
         
-        // Still face the player while backing up
+        // Face the player even when moving away (enemies always face the player)
         this.faceDirection(direction);
     }
     
     faceDirection(direction) {
-        // Default implementation for facing direction
-        this.mesh.lookAt(new THREE.Vector3(
-            this.mesh.position.x + direction.x,
-            this.mesh.position.y,
-            this.mesh.position.z + direction.z
-        ));
+        if (direction.length() === 0) return;
         
-        // Apply any rotation corrections based on mesh type
-        this.correctRotation();
-    }
-    
-    correctRotation() {
-        // Override in subclasses if needed
-        // Default is for cone shape
-        this.mesh.rotation.x = Math.PI;
+        // Calculate the angle to face
+        const angle = Math.atan2(direction.x, direction.z);
+        
+        // For models, we need to rotate the container, not just the mesh
+        if (this.model) {
+            // Set the mesh rotation to the angle
+            this.mesh.rotation.y = angle;
+        } else {
+            // For non-model enemies (original geometries)
+            // Rotation behavior depends on the enemy type
+            switch(this.type) {
+                case EnemyType.BASIC:
+                    // Cone doesn't need to be flipped anymore
+                    this.mesh.rotation.y = angle;
+                    break;
+                default:
+                    // Simple rotation for other types
+                    this.mesh.rotation.y = angle;
+                    break;
+            }
+        }
     }
     
     attackPlayer() {
@@ -432,7 +582,42 @@ export class BaseEnemy {
     }
     
     flashColor(color, duration = 200) {
-        if (this.mesh && this.mesh.material) {
+        // Store the original materials for models
+        if (!this._originalMaterials && this.model) {
+            this._originalMaterials = new Map();
+            this.model.traverse((node) => {
+                if (node.isMesh && node.material) {
+                    this._originalMaterials.set(node, node.material.color.clone());
+                }
+            });
+        }
+        
+        if (this.model) {
+            // Flash the model
+            this.model.traverse((node) => {
+                if (node.isMesh && node.material) {
+                    node.material.color.setHex(color);
+                }
+            });
+            
+            // Reset after duration
+            setTimeout(() => {
+                if (this.model && this.isAlive) {
+                    this.model.traverse((node) => {
+                        if (node.isMesh && node.material) {
+                            const originalColor = this._originalMaterials.get(node);
+                            if (originalColor) {
+                                node.material.color.copy(originalColor);
+                            } else {
+                                // Fallback to default color if original not stored
+                                node.material.color.setHex(this.defaultColor);
+                            }
+                        }
+                    });
+                }
+            }, duration);
+        } else if (this.mesh && this.mesh.material) {
+            // Original implementation for primitive meshes
             const originalColor = this.defaultColor;
             this.mesh.material.color.setHex(color);
             
@@ -446,6 +631,9 @@ export class BaseEnemy {
     
     takeDamage(amount) {
         this.health -= amount;
+        
+        // Update health bar
+        this.updateHealthBar();
         
         // Visual feedback
         this.flashColor(0xffffff, 100); // Flash white when hit
@@ -463,20 +651,54 @@ export class BaseEnemy {
             this.player.gainExperience(this.experienceValue);
         }
         
-        // Death animation
-        this.mesh.material.transparent = true;
-        const fadeOut = setInterval(() => {
-            if (this.mesh && this.mesh.material) {
-                if (this.mesh.material.opacity > 0) {
-                    this.mesh.material.opacity -= 0.05;
+        // Death animation depends on whether it's a model or a primitive geometry
+        if (this.model) {
+            // For model-based enemies, fade out the entire mesh
+            const fadeOut = setInterval(() => {
+                if (this.mesh) {
+                    // Make all materials in the model transparent
+                    this.model.traverse((node) => {
+                        if (node.isMesh && node.material) {
+                            node.material.transparent = true;
+                            node.material.opacity -= 0.05;
+                        }
+                    });
+                    
+                    // Check opacity of first material to determine if fading is complete
+                    let shouldClear = true;
+                    this.model.traverse((node) => {
+                        if (node.isMesh && node.material && node.material.opacity > 0) {
+                            shouldClear = false;
+                        }
+                    });
+                    
+                    if (shouldClear) {
+                        clearInterval(fadeOut);
+                        this.removeFromScene();
+                    }
                 } else {
                     clearInterval(fadeOut);
-                    this.removeFromScene();
                 }
-            } else {
-                clearInterval(fadeOut);
-            }
-        }, 50);
+            }, 50);
+        } else if (this.mesh && this.mesh.material) {
+            // For primitive geometry enemies, use the original fade out method
+            this.mesh.material.transparent = true;
+            const fadeOut = setInterval(() => {
+                if (this.mesh && this.mesh.material) {
+                    if (this.mesh.material.opacity > 0) {
+                        this.mesh.material.opacity -= 0.05;
+                    } else {
+                        clearInterval(fadeOut);
+                        this.removeFromScene();
+                    }
+                } else {
+                    clearInterval(fadeOut);
+                }
+            }, 50);
+        } else {
+            // If no valid mesh/material, just remove from scene directly
+            this.removeFromScene();
+        }
     }
     
     removeFromScene() {
@@ -528,16 +750,44 @@ export class BasicEnemy extends BaseEnemy {
     }
     
     createEnemyMesh(position, powerScaling) {
-        // Basic enemy is a red cone
+        // Create a container group for the enemy
+        this.mesh = new THREE.Group();
+        
+        // Create a temporary placeholder while the model loads
+        const placeholder = new THREE.Group();
         const geometry = new THREE.ConeGeometry(0.5, 1.5, 8);
-        const material = new THREE.MeshStandardMaterial({ color: this.defaultColor });
+        const material = new THREE.MeshStandardMaterial({ 
+            color: this.defaultColor,
+            transparent: true,
+            opacity: 0.5 // Make it semi-transparent
+        });
         
         // Add enhanced glow effect for powered up enemies
         if (powerScaling > 1.0) {
             material.emissive = new THREE.Color(this.defaultColor);
             material.emissiveIntensity = Math.min((powerScaling - 1) * 0.5, 0.7); // Intensity based on scaling
-            
-            // Add outline glow ring to indicate power
+        }
+        
+        const placeholderMesh = new THREE.Mesh(geometry, material);
+        placeholderMesh.castShadow = true;
+        // Don't flip the cone upside down
+        placeholder.add(placeholderMesh);
+        
+        // Position the mesh
+        this.mesh.position.copy(position);
+        this.mesh.position.y = 0.75; // Half height off the ground
+        
+        // Add placeholder to the mesh container
+        this.mesh.add(placeholder);
+        
+        // Add to scene
+        this.scene.add(this.mesh);
+        
+        // Create a health bar
+        this.createHealthBar();
+        
+        // Add power ring if enemy is powered up
+        if (powerScaling > 1.0) {
             const ringGeometry = new THREE.TorusGeometry(0.7, 0.05, 8, 24);
             const ringMaterial = new THREE.MeshBasicMaterial({
                 color: 0xffff00,
@@ -546,28 +796,82 @@ export class BasicEnemy extends BaseEnemy {
             });
             this.powerRing = new THREE.Mesh(ringGeometry, ringMaterial);
             this.powerRing.rotation.x = Math.PI / 2; // Align with ground
-        }
-        
-        this.mesh = new THREE.Mesh(geometry, material);
-        this.mesh.castShadow = true;
-        
-        // Position the mesh
-        this.mesh.position.copy(position);
-        this.mesh.position.y = 0.75; // Half height off the ground
-        
-        // Rotation - cone pointing up
-        this.mesh.rotation.x = Math.PI;
-        
-        // Add power ring if enemy is powered up
-        if (this.powerRing) {
+            
             // Only add to mesh, not to scene directly
             this.mesh.add(this.powerRing);
             // Position relative to mesh
             this.powerRing.position.set(0, -0.65, 0);
         }
         
-        // Add to scene
-        this.scene.add(this.mesh);
+        // Load the glTF model
+        const loader = new GLTFLoader();
+        const modelURL = '/models/basicEnemy.gltf'; 
+        
+        loader.load(
+            modelURL,
+            (gltf) => {
+                console.log('Basic enemy model loaded successfully');
+                
+                // Remove placeholder
+                this.mesh.remove(placeholder);
+                
+                // Add the loaded model to our mesh container
+                this.model = gltf.scene;
+                
+                // Apply scale adjustments - increase size to 2.5x
+                this.model.scale.set(2.5, 2.5, 2.5);
+                
+                // Position the model below current level so feet touch the ground
+                this.model.position.y = -0.75;
+                console.log(`Basic enemy model position set to y=${this.model.position.y}`, this.id);
+                
+                // Make sure model casts shadows
+                this.model.traverse((node) => {
+                    if (node.isMesh) {
+                        node.castShadow = true;
+                        node.receiveShadow = true;
+                    }
+                });
+                
+                // Add model to enemy mesh
+                this.mesh.add(this.model);
+                
+                // Adjust health bar position for model
+                if (this.healthBarBg) {
+                    // Position health bar above the model
+                    // No need to adjust Y since it's positioned relative to the mesh container
+                    this.healthBarBg.position.y = 4.0; 
+                }
+                
+                // Set up animations if they exist
+                if (gltf.animations && gltf.animations.length) {
+                    this.mixer = new THREE.AnimationMixer(this.model);
+                    
+                    // Store all animations
+                    gltf.animations.forEach((clip) => {
+                        this.animationActions[clip.name] = this.mixer.clipAction(clip);
+                    });
+                    
+                    // Start the run animation since enemies are always moving
+                    if (this.animationActions['Run']) {
+                        this.playAnimation('Run');
+                    }
+                }
+                
+                // Add power ring on top of the model if it exists
+                if (this.powerRing) {
+                    // Adjust position based on model height
+                    this.powerRing.position.y = 0; // Adjust this value based on your model
+                }
+            },
+            (xhr) => {
+                console.log(`Loading basic enemy model: ${(xhr.loaded / xhr.total * 100)}% loaded`);
+            },
+            (error) => {
+                console.error('Error loading basic enemy model:', error);
+                // Keep placeholder visible if model fails to load
+            }
+        );
     }
 }
 

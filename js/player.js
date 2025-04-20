@@ -1,4 +1,5 @@
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.module.js';
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { Projectile } from './projectile.js';
 
 export class Player {
@@ -29,6 +30,11 @@ export class Player {
         this.multiShotCount = 1;
         this.projectileSpeed = 0.3;
         
+        // Animation properties
+        this.mixer = null;
+        this.animationActions = {};
+        this.currentAnimation = null;
+        
         // Create player mesh
         this.createPlayerMesh();
         
@@ -37,31 +43,99 @@ export class Player {
     }
     
     createPlayerMesh() {
-        // Create a simple player character (a cylinder with a sphere on top)
-        // Body (cylinder)
-        const bodyGeometry = new THREE.CylinderGeometry(0.5, 0.5, 1.5, 8);
-        const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0x3498db });
-        this.body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-        this.body.position.y = 0.75;
-        this.body.castShadow = true;
+        // Create a temporary placeholder while the model loads
+        const placeholder = new THREE.Group();
+        const placeholderGeometry = new THREE.CylinderGeometry(0.5, 0.5, 1.5, 8);
+        const placeholderMaterial = new THREE.MeshStandardMaterial({ 
+            color: 0x3498db,
+            transparent: true,
+            opacity: 0.7
+        });
+        const placeholderMesh = new THREE.Mesh(placeholderGeometry, placeholderMaterial);
+        placeholderMesh.position.y = 0.75;
+        placeholder.add(placeholderMesh);
         
-        // Head (sphere)
-        const headGeometry = new THREE.SphereGeometry(0.4, 16, 16);
-        const headMaterial = new THREE.MeshStandardMaterial({ color: 0xecf0f1 });
-        this.head = new THREE.Mesh(headGeometry, headMaterial);
-        this.head.position.y = 1.7;
-        this.head.castShadow = true;
-        
-        // Player container
+        // Create player container mesh that will contain the glTF model
         this.mesh = new THREE.Group();
-        this.mesh.add(this.body);
-        this.mesh.add(this.head);
+        this.mesh.add(placeholder);
+        this.scene.add(this.mesh);
+        
+        // Load the glTF model
+        const loader = new GLTFLoader();
+        const modelURL = '/models/player.gltf'; // Adjust path to your model
+        
+        loader.load(
+            modelURL,
+            (gltf) => {
+                console.log('Player model loaded successfully');
+                
+                // Remove placeholder
+                this.mesh.remove(placeholder);
+                
+                // Add the loaded model to our mesh container
+                this.model = gltf.scene;
+                
+                // Apply scale adjustments if needed
+                this.model.scale.set(1, 1, 1); // Adjust scale to match your model
+                
+                // Center model if needed - depends on your model's origin point
+                this.model.position.y = 0; // Adjust as needed
+                
+                // Make sure model casts shadows
+                this.model.traverse((node) => {
+                    if (node.isMesh) {
+                        node.castShadow = true;
+                        node.receiveShadow = true;
+                    }
+                });
+                
+                // Add model to player mesh
+                this.mesh.add(this.model);
+                
+                // Set up animations if they exist
+                if (gltf.animations && gltf.animations.length) {
+                    this.mixer = new THREE.AnimationMixer(this.model);
+                    
+                    // Store all animations
+                    gltf.animations.forEach((clip) => {
+                        this.animationActions[clip.name] = this.mixer.clipAction(clip);
+                    });
+                    
+                    // Set default animation if available
+                    if (this.animationActions['Idle']) {
+                        this.playAnimation('Idle');
+                    } else if (gltf.animations.length > 0) {
+                        // If no idle animation, use the first one
+                        this.playAnimation(gltf.animations[0].name);
+                    }
+                }
+            },
+            (xhr) => {
+                console.log(`Loading player model: ${(xhr.loaded / xhr.total * 100)}% loaded`);
+            },
+            (error) => {
+                console.error('Error loading player model:', error);
+                // Keep placeholder visible if model fails to load
+            }
+        );
         
         // Set initial position
         this.mesh.position.set(0, 0, 0);
+    }
+    
+    playAnimation(name) {
+        // Stop current animation
+        if (this.currentAnimation) {
+            this.currentAnimation.fadeOut(0.2);
+        }
         
-        // Add to scene
-        this.scene.add(this.mesh);
+        // Start new animation
+        if (this.animationActions[name]) {
+            this.currentAnimation = this.animationActions[name];
+            this.currentAnimation.reset().fadeIn(0.2).play();
+        } else {
+            console.warn(`Animation ${name} not found`);
+        }
     }
     
     setupInputHandlers() {
@@ -79,15 +153,27 @@ export class Player {
         switch(event.code) {
             case 'KeyW':
                 this.movementKeys.forward = true;
+                if (this.animationActions['Run']) {
+                    this.playAnimation('Run');
+                }
                 break;
             case 'KeyS':
                 this.movementKeys.backward = true;
+                if (this.animationActions['Run']) {
+                    this.playAnimation('Run');
+                }
                 break;
             case 'KeyA':
                 this.movementKeys.right = true;
+                if (this.animationActions['Run']) {
+                    this.playAnimation('Run');
+                }
                 break;
             case 'KeyD':
                 this.movementKeys.left = true;
+                if (this.animationActions['Run']) {
+                    this.playAnimation('Run');
+                }
                 break;
         }
     }
@@ -107,9 +193,24 @@ export class Player {
                 this.movementKeys.left = false;
                 break;
         }
+        
+        // If no movement keys are pressed, play idle animation
+        if (!this.movementKeys.forward && 
+            !this.movementKeys.backward && 
+            !this.movementKeys.left && 
+            !this.movementKeys.right) {
+            if (this.animationActions['Idle']) {
+                this.playAnimation('Idle');
+            }
+        }
     }
     
     update(deltaTime, camera, enemies = []) {
+        // Update animation mixer if it exists
+        if (this.mixer) {
+            this.mixer.update(deltaTime);
+        }
+        
         // Validate position to prevent geometry errors
         this.validatePosition();
         
@@ -228,7 +329,27 @@ export class Player {
             this.attackTarget = closestEnemy;
             this.fireProjectile(closestEnemy);
             this.lastAttackTime = Date.now();
+            
+            // Play attack animation if available
+            if (this.animationActions['Attack']) {
+                this.playAnimation('Attack');
+                // Return to previous animation after attack completes
+                setTimeout(() => {
+                    if (this.isMoving()) {
+                        this.playAnimation('Run');
+                    } else {
+                        this.playAnimation('Idle');
+                    }
+                }, 500); // Adjust based on attack animation length
+            }
         }
+    }
+    
+    isMoving() {
+        return this.movementKeys.forward || 
+               this.movementKeys.backward || 
+               this.movementKeys.left || 
+               this.movementKeys.right;
     }
     
     fireProjectile(target) {
@@ -302,14 +423,41 @@ export class Player {
             
             this.health -= amount;
             
-            // Visual feedback - flash body red
-            if (this.body && this.body.material) {
-                const originalColor = this.body.material.color.clone();
-                this.body.material.color.set(0xff0000);
-                
+            // Play hit animation if available
+            if (this.animationActions['Hit']) {
+                this.playAnimation('Hit');
+                // Return to previous animation after hit animation completes
                 setTimeout(() => {
-                    if (this.body && this.body.material) {
-                        this.body.material.color.copy(originalColor);
+                    if (this.isMoving()) {
+                        this.playAnimation('Run');
+                    } else {
+                        this.playAnimation('Idle');
+                    }
+                }, 300); // Adjust based on hit animation length
+            }
+            
+            // Visual feedback - flash model red
+            if (this.model) {
+                this.model.traverse((node) => {
+                    if (node.isMesh && node.material) {
+                        // Store original color if not already stored
+                        if (!node.userData.originalColor) {
+                            node.userData.originalColor = node.material.color.clone();
+                        }
+                        
+                        // Flash red
+                        node.material.color.set(0xff0000);
+                    }
+                });
+                
+                // Reset colors after flash
+                setTimeout(() => {
+                    if (this.model) {
+                        this.model.traverse((node) => {
+                            if (node.isMesh && node.material && node.userData.originalColor) {
+                                node.material.color.copy(node.userData.originalColor);
+                            }
+                        });
                     }
                 }, 200);
             }
@@ -320,6 +468,12 @@ export class Player {
             if (this.health <= 0) {
                 this.health = 0;
                 console.log("Player died!");
+                
+                // Play death animation if available
+                if (this.animationActions['Death']) {
+                    this.playAnimation('Death');
+                }
+                
                 // Call game over function
                 const event = new CustomEvent('playerDeath');
                 document.dispatchEvent(event);
@@ -366,12 +520,12 @@ export class Player {
     
     // Add this method to validate the player's position
     validatePosition() {
-        if (this.body && this.body.position) {
+        if (this.mesh && this.mesh.position) {
             // Check for NaN or infinite values in position
-            if (!isFinite(this.body.position.x) || !isFinite(this.body.position.y) || !isFinite(this.body.position.z)) {
+            if (!isFinite(this.mesh.position.x) || !isFinite(this.mesh.position.y) || !isFinite(this.mesh.position.z)) {
                 console.warn(`Invalid player position detected. Resetting position.`);
                 // Reset to a safe position to prevent geometry calculation errors
-                this.body.position.set(0, 0.5, 0);
+                this.mesh.position.set(0, 0, 0);
                 
                 // Also reset velocity if available
                 if (this.velocity) {

@@ -407,6 +407,11 @@ export class BaseEnemy {
                         break;
                     case EnemyType.FAST:
                         this.mesh.position.y = 0.4; // Half height for cube
+                        // Ensure model position is maintained
+                        if (this.model) {
+                            this.model.position.y = -0.4; // Reset the model's position to match initial creation
+                            console.log(`Fast enemy model position set to y=${this.model.position.y}`, this.id);
+                        }
                         break;
                     case EnemyType.TANKY:
                         this.mesh.position.y = 0.9; // Half height for cylinder
@@ -464,10 +469,13 @@ export class BaseEnemy {
             this.mixer.update(deltaTime / 1000); // Convert to seconds for THREE.js
         }
         
-        // Check model position for basic enemies - safety measure to prevent floating
+        // Check model position - safety measure to prevent floating
         if (this.type === EnemyType.BASIC && this.model && this.model.position.y !== -0.75) {
             this.model.position.y = -0.75;
-            console.log(`Fixed floating enemy, reset model y to -0.75`, this.id);
+            console.log(`Fixed floating basic enemy, reset model y to -0.75`, this.id);
+        } else if (this.type === EnemyType.FAST && this.model && this.model.position.y !== -0.4) {
+            this.model.position.y = -0.4;
+            console.log(`Fixed floating fast enemy, reset model y to -0.4`, this.id);
         }
         
         // Validate position to prevent geometry errors
@@ -953,16 +961,43 @@ export class FastEnemy extends BaseEnemy {
     }
     
     createEnemyMesh(position, powerScaling) {
-        // Fast enemy is a blue cube
+        // Create a container group for the enemy
+        this.mesh = new THREE.Group();
+        
+        // Create a temporary placeholder while the model loads
+        const placeholder = new THREE.Group();
         const geometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
-        const material = new THREE.MeshStandardMaterial({ color: this.defaultColor });
+        const material = new THREE.MeshStandardMaterial({ 
+            color: this.defaultColor,
+            transparent: true,
+            opacity: 0.5 // Make it semi-transparent
+        });
         
         // Add enhanced glow effect for powered up enemies
         if (powerScaling > 1.0) {
             material.emissive = new THREE.Color(this.defaultColor);
             material.emissiveIntensity = Math.min((powerScaling - 1) * 0.5, 0.7); // Intensity based on scaling
-            
-            // Add outline glow ring to indicate power
+        }
+        
+        const placeholderMesh = new THREE.Mesh(geometry, material);
+        placeholderMesh.castShadow = true;
+        placeholder.add(placeholderMesh);
+        
+        // Position the mesh
+        this.mesh.position.copy(position);
+        this.mesh.position.y = 0.4; // Half height off the ground
+        
+        // Add placeholder to the mesh container
+        this.mesh.add(placeholder);
+        
+        // Add to scene
+        this.scene.add(this.mesh);
+        
+        // Create a health bar
+        this.createHealthBar();
+        
+        // Add power ring if enemy is powered up
+        if (powerScaling > 1.0) {
             const ringGeometry = new THREE.TorusGeometry(0.6, 0.05, 8, 24);
             const ringMaterial = new THREE.MeshBasicMaterial({
                 color: 0xffff00,
@@ -971,25 +1006,81 @@ export class FastEnemy extends BaseEnemy {
             });
             this.powerRing = new THREE.Mesh(ringGeometry, ringMaterial);
             this.powerRing.rotation.x = Math.PI / 2; // Align with ground
-        }
-        
-        this.mesh = new THREE.Mesh(geometry, material);
-        this.mesh.castShadow = true;
-        
-        // Position the mesh
-        this.mesh.position.copy(position);
-        this.mesh.position.y = 0.4; // Half height off the ground
-        
-        // Add power ring if enemy is powered up
-        if (this.powerRing) {
+            
             // Only add to mesh, not to scene directly
             this.mesh.add(this.powerRing);
             // Position relative to mesh
             this.powerRing.position.set(0, -0.3, 0);
         }
         
-        // Add to scene
-        this.scene.add(this.mesh);
+        // Load the glTF model
+        const loader = new GLTFLoader();
+        const modelURL = '/models/fastEnemy.gltf';
+        
+        loader.load(
+            modelURL,
+            (gltf) => {
+                console.log('Fast enemy model loaded successfully');
+                
+                // Remove placeholder
+                this.mesh.remove(placeholder);
+                
+                // Add the loaded model to our mesh container
+                this.model = gltf.scene;
+                
+                // Apply scale adjustments - increase size to 2.0x (slightly smaller than basic enemy)
+                this.model.scale.set(2.0, 2.0, 2.0);
+                
+                // Position the model below current level so feet touch the ground
+                this.model.position.y = -0.4;
+                console.log(`Fast enemy model position set to y=${this.model.position.y}`, this.id);
+                
+                // Make sure model casts shadows
+                this.model.traverse((node) => {
+                    if (node.isMesh) {
+                        node.castShadow = true;
+                        node.receiveShadow = true;
+                    }
+                });
+                
+                // Add model to enemy mesh
+                this.mesh.add(this.model);
+                
+                // Adjust health bar position for model
+                if (this.healthBarBg) {
+                    // Position health bar above the model
+                    this.healthBarBg.position.y = 3.0; // Slightly lower than basic enemy since fast enemies are smaller
+                }
+                
+                // Set up animations if they exist
+                if (gltf.animations && gltf.animations.length) {
+                    this.mixer = new THREE.AnimationMixer(this.model);
+                    
+                    // Store all animations
+                    gltf.animations.forEach((clip) => {
+                        this.animationActions[clip.name] = this.mixer.clipAction(clip);
+                    });
+                    
+                    // Start the run animation since enemies are always moving
+                    if (this.animationActions['Run']) {
+                        this.playAnimation('Run');
+                    }
+                }
+                
+                // Add power ring on top of the model if it exists
+                if (this.powerRing) {
+                    // Adjust position based on model height
+                    this.powerRing.position.y = 0; // Adjust this value based on your model
+                }
+            },
+            (xhr) => {
+                console.log(`Loading fast enemy model: ${(xhr.loaded / xhr.total * 100)}% loaded`);
+            },
+            (error) => {
+                console.error('Error loading fast enemy model:', error);
+                // Keep placeholder visible if model fails to load
+            }
+        );
     }
     
     correctRotation() {
@@ -1159,6 +1250,18 @@ export class RangedEnemy extends BaseEnemy {
         if (this.mixer) {
             this.mixer.update(deltaTime / 1000); // Convert to seconds for THREE.js
         }
+        
+        // Check model position - safety measure to prevent floating
+        if (this.type === EnemyType.BASIC && this.model && this.model.position.y !== -0.75) {
+            this.model.position.y = -0.75;
+            console.log(`Fixed floating basic enemy, reset model y to -0.75`, this.id);
+        } else if (this.type === EnemyType.FAST && this.model && this.model.position.y !== -0.4) {
+            this.model.position.y = -0.4;
+            console.log(`Fixed floating fast enemy, reset model y to -0.4`, this.id);
+        }
+        
+        // Validate position to prevent geometry errors
+        if (!this.validatePosition()) return;
         
         // Get player position
         const playerPosition = this.player.getPosition();

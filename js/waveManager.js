@@ -7,6 +7,7 @@ export class WaveManager {
         this.scene = scene;
         this.player = player;
         this.game = game;
+        this.camera = game.camera; // Store reference to the camera
         
         // Add reference to this WaveManager in the scene for the boss to access
         this.scene.waveManager = this;
@@ -818,7 +819,7 @@ export class WaveManager {
             const enemy = this.enemies[i];
             
             if (enemy.isAlive) {
-                enemy.update(deltaTime);
+                enemy.update(deltaTime, this.camera);
             } else {
                 // Handle enemy death
                 // Check if it was a boss

@@ -210,34 +210,48 @@ export class BaseEnemy {
     
     createHealthBar() {
         // Create health bar container
-        const healthBarWidth = 1.0;
-        const healthBarHeight = 0.1;
+        const healthBarWidth = 1.5;   // Width of the health bar
+        const healthBarHeight = 0.2;  // Height of the health bar
+        const healthBarDepth = 0.1;   // Depth (thickness) of the health bar
+        
+        // Create a group to hold all health bar elements
+        this.healthBarBg = new THREE.Group();
         
         // Background bar (black)
-        const bgGeometry = new THREE.PlaneGeometry(healthBarWidth, healthBarHeight);
-        const bgMaterial = new THREE.MeshBasicMaterial({
+        const bgGeometry = new THREE.BoxGeometry(healthBarWidth, healthBarHeight, healthBarDepth);
+        const bgMaterial = new THREE.MeshBasicMaterial({ 
             color: 0x000000,
             transparent: true,
-            opacity: 0.5,
-            side: THREE.DoubleSide
+            opacity: 0.8
         });
-        this.healthBarBg = new THREE.Mesh(bgGeometry, bgMaterial);
+        const barBackground = new THREE.Mesh(bgGeometry, bgMaterial);
+        this.healthBarBg.add(barBackground);
         
         // Foreground bar (green)
-        const fgGeometry = new THREE.PlaneGeometry(healthBarWidth, healthBarHeight);
-        const fgMaterial = new THREE.MeshBasicMaterial({
-            color: 0x00ff00,
-            side: THREE.DoubleSide
+        const fgGeometry = new THREE.BoxGeometry(healthBarWidth, healthBarHeight, healthBarDepth / 2);
+        const fgMaterial = new THREE.MeshBasicMaterial({ 
+            color: 0x00ff00
         });
         this.healthBarFg = new THREE.Mesh(fgGeometry, fgMaterial);
-        this.healthBarFg.position.z = 0.01; // Slightly in front of background
+        this.healthBarFg.position.z = healthBarDepth / 2; // Slightly in front of background
+        this.healthBarBg.add(this.healthBarFg);
+        
+        // Add outline to the health bar (white border)
+        const outlineWidth = healthBarWidth + 0.05;
+        const outlineHeight = healthBarHeight + 0.05;
+        const outlineDepth = healthBarDepth + 0.01;
+        const outlineGeometry = new THREE.BoxGeometry(outlineWidth, outlineHeight, outlineDepth);
+        const outlineMaterial = new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.3,
+            wireframe: true
+        });
+        const outline = new THREE.Mesh(outlineGeometry, outlineMaterial);
+        this.healthBarBg.add(outline);
         
         // Position the health bar container
         this.healthBarBg.position.y = 2.0; // Above the enemy
-        this.healthBarBg.rotation.x = Math.PI / 2; // Face it toward the camera
-        
-        // Add foreground to background
-        this.healthBarBg.add(this.healthBarFg);
         
         // Add health bar to mesh
         this.mesh.add(this.healthBarBg);
@@ -255,7 +269,15 @@ export class BaseEnemy {
             this.healthBarFg.scale.x = Math.max(0, healthPercent);
             
             // Position on left side of bar to grow rightward
-            this.healthBarFg.position.x = (healthPercent - 1) * 0.5;
+            this.healthBarFg.position.x = (healthPercent - 1) * 0.75;
+        }
+    }
+    
+    updateHealthBarFacingCamera(camera) {
+        // Instead of making the health bar face the camera, keep it horizontal
+        if (this.healthBarBg) {
+            // Make it face forward with a slight tilt for better visibility
+            this.healthBarBg.rotation.set(-0.2, 0, 0);
         }
     }
     
@@ -461,8 +483,13 @@ export class BaseEnemy {
         return true;
     }
     
-    update(deltaTime) {
+    update(deltaTime, camera) {
         if (!this.isAlive) return;
+        
+        // Update the health bar facing if we have a camera
+        if (camera) {
+            this.updateHealthBarFacingCamera(camera);
+        }
         
         // Update animation mixer if it exists
         if (this.mixer) {
@@ -891,9 +918,8 @@ export class BasicEnemy extends BaseEnemy {
                 
                 // Adjust health bar position for model
                 if (this.healthBarBg) {
-                    // Position health bar above the model
-                    // No need to adjust Y since it's positioned relative to the mesh container
-                    this.healthBarBg.position.y = 4.0; 
+                    // Position health bar higher above the model
+                    this.healthBarBg.position.y = 5.0;
                 }
                 
                 // Set up animations if they exist
@@ -1048,8 +1074,8 @@ export class FastEnemy extends BaseEnemy {
                 
                 // Adjust health bar position for model
                 if (this.healthBarBg) {
-                    // Position health bar above the model
-                    this.healthBarBg.position.y = 3.0; // Slightly lower than basic enemy since fast enemies are smaller
+                    // Position health bar higher above the model
+                    this.healthBarBg.position.y = 4.0;
                 }
                 
                 // Set up animations if they exist
@@ -1240,8 +1266,13 @@ export class RangedEnemy extends BaseEnemy {
         // No rotation correction needed for sphere
     }
     
-    update(deltaTime) {
+    update(deltaTime, camera) {
         if (!this.isAlive) return;
+        
+        // Update the health bar facing if we have a camera
+        if (camera) {
+            this.updateHealthBarFacingCamera(camera);
+        }
         
         // Update projectiles
         this.updateProjectiles(deltaTime);

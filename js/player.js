@@ -34,6 +34,7 @@ export class Player {
         this.mixer = null;
         this.animationActions = {};
         this.currentAnimation = null;
+        this.wasMoving = false; // Track previous movement state
         
         // Create player mesh
         this.createPlayerMesh();
@@ -156,29 +157,18 @@ export class Player {
         switch(event.code) {
             case 'KeyW':
                 this.movementKeys.forward = true;
-                if (this.animationActions['Run']) {
-                    this.playAnimation('Run');
-                }
                 break;
             case 'KeyS':
                 this.movementKeys.backward = true;
-                if (this.animationActions['Run']) {
-                    this.playAnimation('Run');
-                }
                 break;
             case 'KeyA':
                 this.movementKeys.right = true;
-                if (this.animationActions['Run']) {
-                    this.playAnimation('Run');
-                }
                 break;
             case 'KeyD':
                 this.movementKeys.left = true;
-                if (this.animationActions['Run']) {
-                    this.playAnimation('Run');
-                }
                 break;
         }
+        // Note: Animation state is now handled in the update method
     }
     
     handleKeyUp(event) {
@@ -196,27 +186,35 @@ export class Player {
                 this.movementKeys.left = false;
                 break;
         }
-        
-        // If no movement keys are pressed, play idle animation (only if it exists)
-        if (!this.movementKeys.forward && 
-            !this.movementKeys.backward && 
-            !this.movementKeys.left && 
-            !this.movementKeys.right) {
-            if (this.animationActions['Idle']) {
-                this.playAnimation('Idle');
-            } else {
-                // If Idle doesn't exist and we're playing Run, stop it
-                if (this.currentAnimation === this.animationActions['Run']) {
-                    this.currentAnimation.stop();
-                }
-            }
-        }
+        // Animation state changes are now handled in the update method
     }
     
     update(deltaTime, camera, enemies = []) {
         // Update animation mixer if it exists
         if (this.mixer) {
-            this.mixer.update(deltaTime);
+            this.mixer.update(deltaTime / 1000);
+        }
+        
+        // Check if any movement key is pressed
+        const isMoving = this.movementKeys.forward || 
+                         this.movementKeys.backward || 
+                         this.movementKeys.left || 
+                         this.movementKeys.right;
+        
+        // Update animation state only on changes
+        if (isMoving !== this.wasMoving) {
+            if (isMoving) {
+                if (this.animationActions['Run']) {
+                    this.playAnimation('Run');
+                }
+            } else {
+                if (this.animationActions['Idle']) {
+                    this.playAnimation('Idle');
+                } else if (this.currentAnimation === this.animationActions['Run']) {
+                    this.currentAnimation.stop();
+                }
+            }
+            this.wasMoving = isMoving;
         }
         
         // Validate position to prevent geometry errors

@@ -1,6 +1,7 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.module.js';
 import { BaseEnemy } from '../enemy.js';
 import { Projectile } from '../projectile.js';
+import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.157.0/examples/jsm/loaders/GLTFLoader.js';
 
 export class HunterBoss extends BaseEnemy {
     constructor(scene, position, player, bossLevel = 1) {
@@ -50,6 +51,12 @@ export class HunterBoss extends BaseEnemy {
         this.projectiles = [];
         this.maxProjectiles = 20;
         
+        // Animation properties
+        this.mixer = null;
+        this.animationActions = {};
+        this.currentAnimation = null;
+        this.model = null;
+        
         // Create the boss mesh
         this.createEnemyMesh(position);
         
@@ -59,17 +66,21 @@ export class HunterBoss extends BaseEnemy {
     
     createEnemyMesh(position) {
         try {
-            // Create a sleek, agile hunter mesh
+            // Create a sleek, agile hunter mesh - this will be a placeholder
+            // until the 3D model loads
             
-            // Main body
+            // Container for the mesh
+            this.mesh = new THREE.Group();
+            
+            // Main body placeholder
             const bodyGeometry = new THREE.CylinderGeometry(this.size * 0.3, this.size * 0.5, this.size * 1.5, 6);
             const bodyMaterial = new THREE.MeshStandardMaterial({ 
                 color: this.defaultColor,
                 roughness: 0.6,
                 metalness: 0.4
             });
-            this.mesh = new THREE.Mesh(bodyGeometry, bodyMaterial);
-            this.mesh.castShadow = true;
+            const placeholder = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            placeholder.castShadow = true;
             
             // Position the mesh
             this.mesh.position.copy(position);
@@ -83,9 +94,9 @@ export class HunterBoss extends BaseEnemy {
                 metalness: 0.3
             });
             
-            this.head = new THREE.Mesh(headGeometry, headMaterial);
-            this.head.position.y = this.size * 0.9;
-            this.mesh.add(this.head);
+            const placeholderHead = new THREE.Mesh(headGeometry, headMaterial);
+            placeholderHead.position.y = this.size * 0.9;
+            placeholder.add(placeholderHead);
             
             // Create eyes (two glowing eyes)
             const eyeGeometry = new THREE.SphereGeometry(this.size * 0.07, 8, 8);
@@ -96,14 +107,14 @@ export class HunterBoss extends BaseEnemy {
             });
             
             // Left eye
-            this.leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
-            this.leftEye.position.set(-this.size * 0.12, this.size * 0.05, this.size * 0.25);
-            this.head.add(this.leftEye);
+            const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+            leftEye.position.set(-this.size * 0.12, this.size * 0.05, this.size * 0.25);
+            placeholderHead.add(leftEye);
             
             // Right eye
-            this.rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
-            this.rightEye.position.set(this.size * 0.12, this.size * 0.05, this.size * 0.25);
-            this.head.add(this.rightEye);
+            const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+            rightEye.position.set(this.size * 0.12, this.size * 0.05, this.size * 0.25);
+            placeholderHead.add(rightEye);
             
             // Create shoulders/armor
             const shoulderGeometry = new THREE.BoxGeometry(this.size * 0.8, this.size * 0.2, this.size * 0.4);
@@ -113,9 +124,9 @@ export class HunterBoss extends BaseEnemy {
                 metalness: 0.6
             });
             
-            this.shoulders = new THREE.Mesh(shoulderGeometry, armorMaterial);
-            this.shoulders.position.y = this.size * 0.6;
-            this.mesh.add(this.shoulders);
+            const placeholderShoulders = new THREE.Mesh(shoulderGeometry, armorMaterial);
+            placeholderShoulders.position.y = this.size * 0.6;
+            placeholder.add(placeholderShoulders);
             
             // Create arms
             const armGeometry = new THREE.CylinderGeometry(this.size * 0.1, this.size * 0.1, this.size * 0.6, 8);
@@ -126,16 +137,16 @@ export class HunterBoss extends BaseEnemy {
             });
             
             // Left arm
-            this.leftArm = new THREE.Mesh(armGeometry, armMaterial);
-            this.leftArm.position.set(-this.size * 0.4, this.size * 0.3, 0);
-            this.leftArm.rotation.z = Math.PI / 3; // Angle outward
-            this.mesh.add(this.leftArm);
+            const placeholderLeftArm = new THREE.Mesh(armGeometry, armMaterial);
+            placeholderLeftArm.position.set(-this.size * 0.4, this.size * 0.3, 0);
+            placeholderLeftArm.rotation.z = Math.PI / 3; // Angle outward
+            placeholder.add(placeholderLeftArm);
             
             // Right arm
-            this.rightArm = new THREE.Mesh(armGeometry, armMaterial);
-            this.rightArm.position.set(this.size * 0.4, this.size * 0.3, 0);
-            this.rightArm.rotation.z = -Math.PI / 3; // Angle outward
-            this.mesh.add(this.rightArm);
+            const placeholderRightArm = new THREE.Mesh(armGeometry, armMaterial);
+            placeholderRightArm.position.set(this.size * 0.4, this.size * 0.3, 0);
+            placeholderRightArm.rotation.z = -Math.PI / 3; // Angle outward
+            placeholder.add(placeholderRightArm);
             
             // Create blades (weapons)
             const bladeGeometry = new THREE.BoxGeometry(this.size * 0.05, this.size * 0.4, this.size * 0.1);
@@ -146,19 +157,128 @@ export class HunterBoss extends BaseEnemy {
             });
             
             // Left blade
-            this.leftBlade = new THREE.Mesh(bladeGeometry, bladeMaterial);
-            this.leftBlade.position.set(0, -this.size * 0.3, this.size * 0.1);
-            this.leftArm.add(this.leftBlade);
+            const placeholderLeftBlade = new THREE.Mesh(bladeGeometry, bladeMaterial);
+            placeholderLeftBlade.position.set(0, -this.size * 0.3, this.size * 0.1);
+            placeholderLeftArm.add(placeholderLeftBlade);
             
             // Right blade
-            this.rightBlade = new THREE.Mesh(bladeGeometry, bladeMaterial);
-            this.rightBlade.position.set(0, -this.size * 0.3, this.size * 0.1);
-            this.rightArm.add(this.rightBlade);
+            const placeholderRightBlade = new THREE.Mesh(bladeGeometry, bladeMaterial);
+            placeholderRightBlade.position.set(0, -this.size * 0.3, this.size * 0.1);
+            placeholderRightArm.add(placeholderRightBlade);
+            
+            // Give placeholder a unique name for easy reference later
+            placeholder.name = "placeholder";
+            
+            // Add to mesh container
+            this.mesh.add(placeholder);
             
             // Add to scene
             this.scene.add(this.mesh);
             
-            console.log("Hunter boss mesh created successfully");
+            // Create health bar
+            this.createHealthBar();
+            
+            // Load the glTF model
+            const loader = new GLTFLoader();
+            const modelURL = '/models/hunter.gltf';
+            
+            loader.load(
+                modelURL,
+                (gltf) => {
+                    console.log('Hunter boss model loaded successfully');
+                    
+                    // Find and remove the placeholder by name
+                    const placeholderObj = this.mesh.getObjectByName("placeholder");
+                    if (placeholderObj) {
+                        // Properly dispose of placeholder geometries and materials
+                        placeholderObj.traverse((child) => {
+                            if (child.isMesh) {
+                                if (child.geometry) child.geometry.dispose();
+                                if (child.material) child.material.dispose();
+                            }
+                        });
+                        this.mesh.remove(placeholderObj);
+                    }
+                    
+                    // Remove any existing model from the scene (in case there's one already)
+                    const existingModel = this.mesh.getObjectByName("hunter3DModel");
+                    if (existingModel) {
+                        // Properly dispose of existing model resources
+                        existingModel.traverse((child) => {
+                            if (child.isMesh) {
+                                if (child.geometry) child.geometry.dispose();
+                                if (child.material) child.material.dispose();
+                            }
+                        });
+                        this.mesh.remove(existingModel);
+                    }
+                    
+                    // Create our own container for the model to control positioning
+                    const modelContainer = new THREE.Group();
+                    modelContainer.name = "hunter3DModel";
+                    
+                    // Add the loaded model to our container
+                    this.model = gltf.scene;
+                    
+                    // Apply scale adjustments based on boss level
+                    const modelScale = 3.0 + (this.bossLevel * 0.5);
+                    this.model.scale.set(modelScale, modelScale, modelScale);
+                    
+                    // Position the model properly - adjust Y position to ground level
+                    this.model.position.y = -2.2; // Fine-tuned position for proper ground placement
+                    
+                    // Make sure model casts shadows
+                    this.model.traverse((node) => {
+                        if (node.isMesh) {
+                            node.castShadow = true;
+                            node.receiveShadow = true;
+                            
+                            // Store original material colors for visual effects
+                            if (!this._originalMaterials) {
+                                this._originalMaterials = new Map();
+                            }
+                            this._originalMaterials.set(node, node.material.color.clone());
+                        }
+                    });
+                    
+                    // Add model to container, then add container to mesh
+                    modelContainer.add(this.model);
+                    this.mesh.add(modelContainer);
+                    
+                    // Adjust health bar position for model
+                    if (this.healthBarBg) {
+                        // Position health bar higher above the model
+                        this.healthBarBg.position.y = 6.0 + (this.bossLevel * 0.5);
+                    }
+                    
+                    // Set up animations if they exist
+                    if (gltf.animations && gltf.animations.length) {
+                        this.mixer = new THREE.AnimationMixer(this.model);
+                        
+                        // Store all animations
+                        gltf.animations.forEach((clip) => {
+                            this.animationActions[clip.name] = this.mixer.clipAction(clip);
+                            console.log(`Loaded animation: ${clip.name}`);
+                        });
+                        
+                        // Start the run animation by default
+                        if (this.animationActions['Run']) {
+                            this.playAnimation('Run');
+                        }
+                    }
+                    
+                    console.log("Hunter boss 3D model setup complete");
+                },
+                (xhr) => {
+                    console.log(`Loading hunter boss model: ${(xhr.loaded / xhr.total * 100)}% loaded`);
+                },
+                (error) => {
+                    console.error('Error loading hunter boss model:', error);
+                    // Keep the placeholder visuals
+                }
+            );
+            
+            console.log("Hunter boss mesh creation initiated");
         } catch (error) {
             console.error("Error creating Hunter boss mesh:", error);
         }
@@ -310,38 +430,72 @@ export class HunterBoss extends BaseEnemy {
         try {
             if (!this.mesh) return;
             
-            // Animate arms based on running/combat state
-            const armSwingSpeed = 0.002 * (1 + this.currentPhase * 0.3);
-            const time = Date.now() * armSwingSpeed;
-            
-            // Swing arms
-            if (this.leftArm && this.rightArm) {
-                this.leftArm.rotation.x = Math.sin(time) * 0.3;
-                this.rightArm.rotation.x = Math.sin(time + Math.PI) * 0.3;
+            // Update animation mixer if it exists
+            if (this.mixer) {
+                this.mixer.update(deltaTime / 1000); // Convert deltaTime to seconds
             }
             
-            // Update eye intensity based on phase
-            if (this.leftEye && this.rightEye) {
-                let eyeColor;
-                switch (this.currentPhase) {
-                    case 0: eyeColor = 0xffcc00; break; // Yellow
-                    case 1: eyeColor = 0xffbb00; break; // Orange-yellow
-                    case 2: eyeColor = 0xff9900; break; // Orange
-                    case 3: eyeColor = 0xff6600; break; // Red-orange
-                    default: eyeColor = 0xffcc00;
+            // If using primitive shapes (placeholder) instead of 3D model
+            if (!this.model) {
+                // Animate arms based on running/combat state
+                const armSwingSpeed = 0.002 * (1 + this.currentPhase * 0.3);
+                const time = Date.now() * armSwingSpeed;
+                
+                // Swing arms
+                if (this.leftArm && this.rightArm) {
+                    this.leftArm.rotation.x = Math.sin(time) * 0.3;
+                    this.rightArm.rotation.x = Math.sin(time + Math.PI) * 0.3;
                 }
                 
-                this.leftEye.material.color.setHex(eyeColor);
-                this.leftEye.material.emissive.setHex(eyeColor);
-                this.rightEye.material.color.setHex(eyeColor);
-                this.rightEye.material.emissive.setHex(eyeColor);
-                
-                const intensity = 0.7 + Math.sin(time * 5) * 0.2;
-                this.leftEye.material.emissiveIntensity = intensity;
-                this.rightEye.material.emissiveIntensity = intensity;
+                // Update eye intensity based on phase
+                if (this.leftEye && this.rightEye) {
+                    let eyeColor;
+                    switch (this.currentPhase) {
+                        case 0: eyeColor = 0xffcc00; break; // Yellow
+                        case 1: eyeColor = 0xffbb00; break; // Orange-yellow
+                        case 2: eyeColor = 0xff9900; break; // Orange
+                        case 3: eyeColor = 0xff6600; break; // Red-orange
+                        default: eyeColor = 0xffcc00;
+                    }
+                    
+                    this.leftEye.material.color.setHex(eyeColor);
+                    this.leftEye.material.emissive.setHex(eyeColor);
+                    this.rightEye.material.color.setHex(eyeColor);
+                    this.rightEye.material.emissive.setHex(eyeColor);
+                    
+                    const intensity = 0.7 + Math.sin(time * 5) * 0.2;
+                    this.leftEye.material.emissiveIntensity = intensity;
+                    this.rightEye.material.emissiveIntensity = intensity;
+                }
             }
         } catch (error) {
             console.error("Error in Hunter visual update:", error);
+        }
+    }
+    
+    // Play a specific animation if the mixer and animation exists
+    playAnimation(name) {
+        if (!this.mixer || !this.animationActions[name]) return;
+        
+        // Stop any currently playing animation
+        if (this.currentAnimation) {
+            this.currentAnimation.fadeOut(0.2);
+        }
+        
+        // Start the new animation
+        this.currentAnimation = this.animationActions[name];
+        this.currentAnimation.reset();
+        this.currentAnimation.fadeIn(0.2);
+        this.currentAnimation.play();
+        
+        console.log(`Playing hunter animation: ${name}`);
+    }
+    
+    // Stop current animation
+    stopAnimation() {
+        if (this.currentAnimation) {
+            this.currentAnimation.stop();
+            this.currentAnimation = null;
         }
     }
     
@@ -358,8 +512,20 @@ export class HunterBoss extends BaseEnemy {
                 // Deal damage to player
                 this.player.takeDamage(this.damage);
                 
-                // Perform blade attack animation
-                this.meleeAttackAnimation();
+                // Play attack animation if available, otherwise use the old animation
+                if (this.mixer && this.animationActions['Attack']) {
+                    this.playAnimation('Attack');
+                    
+                    // Return to run animation after attack completes
+                    setTimeout(() => {
+                        if (this.isAlive && this.mixer && this.animationActions['Run']) {
+                            this.playAnimation('Run');
+                        }
+                    }, 1000);
+                } else {
+                    // Perform traditional blade attack animation
+                    this.meleeAttackAnimation();
+                }
                 
                 // Visual effect
                 this.createMeleeAttackEffect();
@@ -451,78 +617,69 @@ export class HunterBoss extends BaseEnemy {
     
     throwSingleKnife() {
         try {
-            console.log("Hunter throwing knife");
+            if (!this.isAlive) return;
             
-            // Get direction to player with slight inaccuracy
+            console.log("Hunter boss throwing knife");
+            
+            // Play ranged attack animation if available
+            if (this.mixer && (this.animationActions['Throw'] || this.animationActions['Attack'])) {
+                const throwAnim = this.animationActions['Throw'] || this.animationActions['Attack'];
+                this.playAnimation(throwAnim.name);
+                
+                // Return to run animation after attack completes
+                setTimeout(() => {
+                    if (this.isAlive && this.mixer && this.animationActions['Run']) {
+                        this.playAnimation('Run');
+                    }
+                }, 1000);
+            }
+            
+            // Get direction to player
             const playerPosition = this.player.getPosition();
             const direction = new THREE.Vector3();
             direction.subVectors(playerPosition, this.mesh.position);
-            
-            // Add small random deviation
-            direction.x += (Math.random() - 0.5) * 1.5;
-            direction.z += (Math.random() - 0.5) * 1.5;
-            direction.y = 0; // Keep projectile flat
+            direction.y = 0; // Keep projectile on xz plane
             direction.normalize();
             
-            // Animate arm throw
-            const useLeftArm = Math.random() > 0.5;
-            if (useLeftArm && this.leftArm) {
-                const originalRotation = this.leftArm.rotation.clone();
-                this.leftArm.rotation.x = -Math.PI / 2;
-                
-                setTimeout(() => {
-                    if (this.leftArm) {
-                        this.leftArm.rotation.copy(originalRotation);
-                    }
-                }, 200);
-            } else if (this.rightArm) {
-                const originalRotation = this.rightArm.rotation.clone();
-                this.rightArm.rotation.x = -Math.PI / 2;
-                
-                setTimeout(() => {
-                    if (this.rightArm) {
-                        this.rightArm.rotation.copy(originalRotation);
-                    }
-                }, 200);
+            // Create the projectile
+            const knifeSize = 0.2 + (this.bossLevel * 0.05);
+            
+            // Start position - from center of hunter
+            const startPosition = this.mesh.position.clone();
+            startPosition.y += this.size * 0.5; // Align with center of hunter
+            
+            // Add slight randomization to direction
+            direction.x += (Math.random() * 0.1) - 0.05;
+            direction.z += (Math.random() * 0.1) - 0.05;
+            direction.normalize();
+            
+            // Create knife projectile with new API format - use knife color
+            const projectile = new Projectile(
+                this.scene,
+                startPosition,
+                direction,
+                0.08, // speed
+                knifeSize, // size
+                this.damage * 0.7, // damage
+                0xccffcc, // Use knife color (light green) for proper pooling
+                false, // not from player
+                null, // no target
+                2000 // lifetime
+            );
+            
+            // Add to projectiles array for tracking and cleanup
+            this.projectiles.push(projectile);
+            
+            // Remove oldest projectile if we have too many
+            if (this.projectiles.length > this.maxProjectiles) {
+                const oldProjectile = this.projectiles.shift();
+                if (oldProjectile && oldProjectile.deactivate) {
+                    oldProjectile.deactivate();
+                }
             }
             
-            // Fire projectile from arm position
-            setTimeout(() => {
-                const armPosition = new THREE.Vector3();
-                if (useLeftArm && this.leftArm) {
-                    this.leftBlade.getWorldPosition(armPosition);
-                } else if (this.rightArm) {
-                    this.rightBlade.getWorldPosition(armPosition);
-                } else {
-                    armPosition.copy(this.mesh.position);
-                    armPosition.y += this.size * 0.5;
-                }
-                
-                // Create projectile
-                const projectile = new Projectile(
-                    this.scene,
-                    armPosition,
-                    direction,
-                    0.3,                    // Fast speed
-                    0.2,                    // Small size
-                    this.damage * 0.7,      // Lower damage for ranged
-                    0xccffcc,               // Light green color
-                    false,                  // Not from player
-                    null,                   // No target
-                    2000                    // Shorter lifetime
-                );
-                
-                // Store reference for updating and cleanup
-                this.projectiles.push(projectile);
-                
-                // Limit max projectiles for performance
-                if (this.projectiles.length > this.maxProjectiles) {
-                    const oldestProjectile = this.projectiles.shift();
-                    if (oldestProjectile.isActive) {
-                        oldestProjectile.deactivate();
-                    }
-                }
-            }, 100); // Slight delay for animation
+            // Note: We no longer customize the projectile mesh as it's handled by the ProjectileManager
+            // The projectile.mesh is now just a getter that returns an object with a position property
         } catch (error) {
             console.error("Error in Hunter throwSingleKnife:", error);
         }
@@ -530,16 +687,20 @@ export class HunterBoss extends BaseEnemy {
     
     updateProjectiles(deltaTime) {
         try {
-            // Only check for collisions with player - movement and visuals handled by ProjectileManager
+            // The Projectile class now delegates most of its functionality to the ProjectileManager
+            // We just need to check for inactive projectiles and remove them from our array
             for (let i = this.projectiles.length - 1; i >= 0; i--) {
                 const projectile = this.projectiles[i];
                 
-                if (projectile.isActive) {
-                    // Check collision with player
-                    projectile.checkPlayerCollision(this.player);
-                } else {
-                    // Remove inactive projectiles
+                if (!projectile || !projectile.isActive) {
+                    // Remove inactive projectiles from our array
                     this.projectiles.splice(i, 1);
+                    continue;
+                }
+                
+                // Check collision with player if this is managed here
+                if (projectile.checkPlayerCollision) {
+                    projectile.checkPlayerCollision(this.player);
                 }
             }
         } catch (error) {
@@ -793,45 +954,61 @@ export class HunterBoss extends BaseEnemy {
     // Special attack - Dash Attack
     dashAttack() {
         try {
-            console.log("Hunter boss performing Dash Attack");
+            if (!this.isAlive || this.isDashing) return;
             
-            // Save current position
+            console.log("Hunter boss performing dash attack");
+            
+            const currentTime = Date.now();
+            this.lastDashTime = currentTime;
+            this.isDashing = true;
+            
+            // Store starting position for trail effect
             const startPosition = this.mesh.position.clone();
             
-            // Visual telegraph for dash
-            this.flashColor(0x00ff99, 400);
-            
-            // Predict player movement and target slightly ahead of them
+            // Calculate dash target position (through player position)
             const playerPosition = this.player.getPosition();
-            const playerDirection = this.player.getVelocity ? this.player.getVelocity() : new THREE.Vector3();
-            const predictionFactor = 10; // How far ahead to predict
+            const direction = new THREE.Vector3();
+            direction.subVectors(playerPosition, this.mesh.position);
+            direction.y = 0; // Keep on xz plane
+            direction.normalize();
             
-            const targetPosition = new THREE.Vector3().copy(playerPosition);
-            if (playerDirection && playerDirection.length() > 0.01) {
-                targetPosition.add(playerDirection.clone().multiplyScalar(predictionFactor));
+            // Set dash target to be past the player
+            const dashDistance = direction.clone().multiplyScalar(this.rangedAttackRange * 0.6);
+            this.dashTarget = new THREE.Vector3().addVectors(this.mesh.position, dashDistance);
+            
+            // Face the dash direction
+            this.faceDirection(direction);
+            
+            // Play dash animation if available
+            if (this.mixer && (this.animationActions['Dash'] || this.animationActions['Run'])) {
+                const dashAnim = this.animationActions['Dash'] || this.animationActions['Run'];
+                this.playAnimation(dashAnim.name);
+                
+                // Speed up the animation if it's the run animation
+                if (dashAnim.name === 'Run') {
+                    this.currentAnimation.timeScale = 2.0;
+                }
             }
             
-            // Start dashing after telegraph
+            // Create dash effect
+            this.createDashTrail(startPosition);
+            
+            // Play dash sound effect
+            // ... sound effect code ...
+            
+            // Stop dash after some time
             setTimeout(() => {
-                if (!this.isAlive) return;
-                
-                this.isDashing = true;
-                this.dashTarget = targetPosition.clone();
-                
-                // Create dash trail effect
-                this.createDashTrail(startPosition);
-                
-                // End dash after set time if not already ended
-                setTimeout(() => {
-                    if (this.isDashing) {
-                        this.isDashing = false;
-                        this.dashTarget = null;
-                        this.lastDashTime = Date.now();
+                if (this.isAlive) {
+                    this.isDashing = false;
+                    
+                    // Return to normal animation
+                    if (this.mixer && this.animationActions['Run']) {
+                        this.playAnimation('Run');
                     }
-                }, 800); // Maximum dash time
-            }, 400);
+                }
+            }, 1000);
         } catch (error) {
-            console.error("Error in Hunter dash attack:", error);
+            console.error("Error in Hunter dashAttack:", error);
         }
     }
     
@@ -986,6 +1163,19 @@ export class HunterBoss extends BaseEnemy {
             // Visual telegraph
             this.flashColor(0xccffcc, 300);
             
+            // Play special attack animation if available
+            if (this.mixer && (this.animationActions['Special'] || this.animationActions['Throw'] || this.animationActions['Attack'])) {
+                const throwAnim = this.animationActions['Special'] || this.animationActions['Throw'] || this.animationActions['Attack'];
+                this.playAnimation(throwAnim.name);
+                
+                // Return to run animation after attack completes
+                setTimeout(() => {
+                    if (this.isAlive && this.mixer && this.animationActions['Run']) {
+                        this.playAnimation('Run');
+                    }
+                }, 1500);
+            }
+            
             // Number of knives based on phase
             const knifeCount = 5 + (this.currentPhase * 2);
             const angleSpread = 0.6; // How wide the spread is
@@ -996,19 +1186,6 @@ export class HunterBoss extends BaseEnemy {
             baseDirection.subVectors(playerPosition, this.mesh.position);
             baseDirection.y = 0; // Keep on xz plane
             baseDirection.normalize();
-            
-            // Animation for preparing to throw
-            if (this.mesh) {
-                // Stand still and raise both arms
-                if (this.leftArm) this.leftArm.rotation.x = -Math.PI / 2;
-                if (this.rightArm) this.rightArm.rotation.x = -Math.PI / 2;
-                
-                // Reset arms after delay
-                setTimeout(() => {
-                    if (this.leftArm) this.leftArm.rotation.x = 0;
-                    if (this.rightArm) this.rightArm.rotation.x = 0;
-                }, 500);
-            }
             
             // Delay until knives are thrown
             setTimeout(() => {
@@ -1032,18 +1209,20 @@ export class HunterBoss extends BaseEnemy {
                         const position = this.mesh.position.clone();
                         position.y = this.size * 0.8;
                         
-                        // Create projectile
+                        const knifeSize = 0.2;
+                        
+                        // Create projectile with Projectile class (using the correct constructor format)
                         const projectile = new Projectile(
                             this.scene,
                             position,
                             direction,
-                            0.3,                    // Fast speed
-                            0.2,                    // Small size
-                            this.damage * 0.5,      // Lower damage for multiple projectiles
-                            0xccffcc,               // Light green color
+                            0.3,                    // Speed
+                            knifeSize,              // Size
+                            this.damage * 0.5,      // Damage
+                            0xccffcc,               // Light green color for knives
                             false,                  // Not from player
                             null,                   // No target
-                            2000                    // Shorter lifetime
+                            2000                    // Lifetime
                         );
                         
                         this.projectiles.push(projectile);
@@ -1051,7 +1230,7 @@ export class HunterBoss extends BaseEnemy {
                         // Limit max projectiles
                         if (this.projectiles.length > this.maxProjectiles) {
                             const oldestProjectile = this.projectiles.shift();
-                            if (oldestProjectile.isActive) {
+                            if (oldestProjectile && oldestProjectile.deactivate) {
                                 oldestProjectile.deactivate();
                             }
                         }
@@ -1066,78 +1245,80 @@ export class HunterBoss extends BaseEnemy {
     // Special attack - Smoke Bomb
     smokeBomb() {
         try {
-            console.log("Hunter boss using Smoke Bomb");
+            if (!this.isAlive) return;
             
-            // Visual telegraph - hunter crouches
-            if (this.mesh) {
-                this.mesh.position.y -= this.size * 0.2;
+            console.log("Hunter boss using smoke bomb");
+            
+            // Play special attack animation if available
+            if (this.mixer && (this.animationActions['Special'] || this.animationActions['Attack'])) {
+                const specialAnim = this.animationActions['Special'] || this.animationActions['Attack'];
+                this.playAnimation(specialAnim.name);
                 
-                // Reset position after telegraph
+                // Return to run animation after attack completes
                 setTimeout(() => {
-                    if (this.mesh) this.mesh.position.y += this.size * 0.2;
-                }, 300);
+                    if (this.isAlive && this.mixer && this.animationActions['Run']) {
+                        this.playAnimation('Run');
+                    }
+                }, 1500);
             }
             
+            // Create smoke effect at hunter's position
+            this.createSmokeEffect();
+            
+            // Hunter becomes temporarily invisible
+            const originalVisible = this.mesh.visible;
             setTimeout(() => {
                 if (!this.isAlive) return;
                 
-                // Create smoke bomb effect at hunter's feet
-                this.createSmokeEffect();
+                if (this.model) {
+                    this.model.visible = false;
+                } else {
+                    this.mesh.visible = false;
+                }
                 
-                // Teleport to a random position around the player
+                // Move to a new position away from player
+                const playerPosition = this.player.getPosition();
+                const direction = new THREE.Vector3();
+                direction.subVectors(this.mesh.position, playerPosition);
+                direction.y = 0;
+                direction.normalize();
+                
+                // Teleport to a position behind the player
+                const angleOffset = (Math.random() - 0.5) * Math.PI * 0.5; // +/- 45 degrees
+                direction.applyAxisAngle(new THREE.Vector3(0, 1, 0), angleOffset);
+                
+                // Calculate new position based on preferred distance
+                const newPosition = new THREE.Vector3().addVectors(
+                    playerPosition,
+                    direction.multiplyScalar(this.preferredDistance)
+                );
+                
+                // Set new position
+                this.mesh.position.copy(newPosition);
+                
+                // Wait a moment then become visible again with a new smoke bomb
                 setTimeout(() => {
                     if (!this.isAlive) return;
                     
-                    this.mesh.visible = false; // Hide during teleport
+                    // Create smoke at new position
+                    this.createSmokeEffect();
                     
-                    // Determine new position
-                    const playerPos = this.player.getPosition();
-                    const angle = Math.random() * Math.PI * 2;
-                    const distance = this.preferredDistance * 0.8; // Slightly closer than preferred distance
+                    // Become visible
+                    if (this.model) {
+                        this.model.visible = true;
+                    } else {
+                        this.mesh.visible = true;
+                    }
                     
-                    const newPosition = new THREE.Vector3(
-                        playerPos.x + Math.cos(angle) * distance,
-                        this.mesh.position.y,
-                        playerPos.z + Math.sin(angle) * distance
-                    );
-                    
-                    // Ensure within arena bounds
-                    const arenaSize = 28;
-                    newPosition.x = Math.max(-arenaSize, Math.min(arenaSize, newPosition.x));
-                    newPosition.z = Math.max(-arenaSize, Math.min(arenaSize, newPosition.z));
-                    
-                    // Move to new position
-                    this.mesh.position.copy(newPosition);
-                    
-                    // Show hunter again
-                    setTimeout(() => {
-                        if (this.mesh) this.mesh.visible = true;
-                        
-                        // Create another smoke effect at new position
-                        this.createSmokeEffect();
-                        
-                        // Immediately attack after appearing
-                        setTimeout(() => {
-                            if (this.isAlive) {
-                                // Get direction to player
-                                const direction = new THREE.Vector3();
-                                direction.subVectors(this.player.getPosition(), this.mesh.position);
-                                this.faceDirection(direction);
-                                
-                                // Get distance to player
-                                const distance = direction.length();
-                                
-                                // Choose appropriate attack based on distance
-                                if (distance <= this.attackRange * 1.5) {
-                                    this.attackPlayer(); // Melee if close
-                                } else {
-                                    this.throwingKnives(); // Ranged if far
-                                }
-                            }
-                        }, 200);
-                    }, 100);
-                }, 1000); // Delay before teleport
-            }, 300); // Delay after telegraph
+                    // Immediately attack if in range
+                    const distanceToPlayer = new THREE.Vector3().subVectors(playerPosition, this.mesh.position).length();
+                    if (distanceToPlayer <= this.attackRange) {
+                        this.attackPlayer();
+                    } else if (distanceToPlayer <= this.rangedAttackRange) {
+                        this.throwSingleKnife();
+                    }
+                }, 500);
+            }, 500);
         } catch (error) {
             console.error("Error in Hunter smokeBomb:", error);
         }
@@ -1228,41 +1409,196 @@ export class HunterBoss extends BaseEnemy {
     
     // Override die method to clean up properly
     die() {
-        super.die();
-        
-        // Clean up projectiles
-        for (const projectile of this.projectiles) {
-            if (projectile.isActive) {
-                projectile.deactivate();
+        try {
+            // Call base class die method
+            super.die();
+            
+            console.log("Hunter boss dying!");
+            
+            // Clean up projectiles
+            if (this.projectiles && this.projectiles.length > 0) {
+                // Create a copy of the array to avoid modification during iteration
+                const projectilesToCleanup = [...this.projectiles];
+                
+                projectilesToCleanup.forEach(projectile => {
+                    if (projectile && typeof projectile.deactivate === 'function') {
+                        projectile.deactivate();
+                    }
+                });
+                
+                // Clear the array
+                this.projectiles = [];
             }
+            
+            // Play death animation if available
+            if (this.mixer && this.animationActions['Death']) {
+                this.playAnimation('Death');
+            } else {
+                // Flash red when dying
+                this.flashColor(0xff0000, 500);
+            }
+        } catch (error) {
+            console.error("Error in Hunter boss die method:", error);
+            // Still clear projectiles array even if there was an error
+            this.projectiles = [];
         }
-        this.projectiles = [];
     }
     
     // Override removeFromScene to prevent boss from being added to enemy pool
     removeFromScene() {
-        console.log("Hunter Boss removeFromScene called - ensuring complete cleanup");
-        // For bosses, we need to make sure the mesh is completely removed and not pooled
-        if (this.mesh) {
-            // Remove from scene and dispose resources if not already done by die()
-            if (this.mesh.parent) {
-                this.scene.remove(this.mesh);
+        try {
+            if (!this.mesh) return;
+            
+            console.log("Hunter boss removeFromScene called");
+            
+            // Stop all animations
+            if (this.mixer) {
+                this.mixer.stopAllAction();
+                this.currentAnimation = null;
             }
             
-            // Dispose of main mesh resources if not already done
-            if (this.mesh.geometry) this.mesh.geometry.dispose();
-            if (this.mesh.material) {
-                if (Array.isArray(this.mesh.material)) {
-                    this.mesh.material.forEach(m => m.dispose());
-                } else {
-                    this.mesh.material.dispose();
-                }
+            // Clean up any remaining projectiles
+            if (this.projectiles && this.projectiles.length > 0) {
+                const projectilesToCleanup = [...this.projectiles];
+                projectilesToCleanup.forEach(projectile => {
+                    if (projectile && typeof projectile.deactivate === 'function') {
+                        projectile.deactivate();
+                    }
+                });
+                this.projectiles = [];
             }
             
-            // Clear the mesh reference
-            this.mesh = null;
+            // Fade out the model if it exists
+            if (this.model) {
+                const fadeOut = () => {
+                    try {
+                        if (!this.model) return; // Check if model was removed during animation
+                        
+                        // Make all materials in the model transparent
+                        this.model.traverse((node) => {
+                            if (node.isMesh && node.material) {
+                                node.material.transparent = true;
+                                node.material.opacity -= 0.05;
+                            }
+                        });
+                        
+                        // Check opacity of materials to determine if fading is complete
+                        let shouldContinue = false;
+                        this.model.traverse((node) => {
+                            if (node.isMesh && node.material && node.material.opacity > 0) {
+                                shouldContinue = true;
+                            }
+                        });
+                        
+                        if (shouldContinue) {
+                            requestAnimationFrame(fadeOut);
+                        } else {
+                            this.cleanupResources();
+                        }
+                    } catch (fadeError) {
+                        console.error("Error in Hunter boss fade out:", fadeError);
+                        this.cleanupResources(); // Try cleanup anyway
+                    }
+                };
+                
+                fadeOut();
+            } else {
+                this.cleanupResources();
+            }
+        } catch (error) {
+            console.error("Error in Hunter removeFromScene:", error);
+            this.cleanupResources(); // Try basic cleanup anyway
         }
-        // Do NOT call enemyPool.release() here, as bosses should not be pooled
+    }
+    
+    cleanupResources() {
+        try {
+            // Clean up projectiles
+            if (this.projectiles && this.projectiles.length > 0) {
+                this.projectiles.forEach(projectile => {
+                    if (projectile && projectile.deactivate) {
+                        projectile.deactivate();
+                    }
+                });
+                this.projectiles = [];
+            }
+            
+            // Clean up animations and mixer
+            if (this.mixer) {
+                this.mixer.stopAllAction();
+                this.animationActions = {};
+                this.currentAnimation = null;
+                this.mixer = null;
+            }
+            
+            // Clean up health bar
+            if (this.healthBarBg) {
+                if (this.healthBarBg.parent) {
+                    this.healthBarBg.parent.remove(this.healthBarBg);
+                }
+                if (this.healthBarBg.geometry) {
+                    this.healthBarBg.geometry.dispose();
+                }
+                if (this.healthBarBg.material) {
+                    this.healthBarBg.material.dispose();
+                }
+                this.healthBarBg = null;
+            }
+            
+            if (this.healthBar) {
+                if (this.healthBar.geometry) {
+                    this.healthBar.geometry.dispose();
+                }
+                if (this.healthBar.material) {
+                    this.healthBar.material.dispose();
+                }
+                this.healthBar = null;
+            }
+            
+            // Dispose of model resources
+            if (this.model) {
+                this.model.traverse((node) => {
+                    if (node.isMesh) {
+                        if (node.geometry) node.geometry.dispose();
+                        if (node.material) {
+                            if (Array.isArray(node.material)) {
+                                node.material.forEach(mat => mat.dispose());
+                            } else {
+                                node.material.dispose();
+                            }
+                        }
+                    }
+                });
+                this.model = null;
+            }
+            
+            // Remove mesh from scene
+            if (this.mesh) {
+                if (this.scene) {
+                    this.scene.remove(this.mesh);
+                }
+                
+                // Clean up placeholder meshes if they exist
+                this.mesh.traverse((child) => {
+                    if (child.isMesh) {
+                        if (child.geometry) child.geometry.dispose();
+                        if (child.material) {
+                            if (Array.isArray(child.material)) {
+                                child.material.forEach(mat => mat.dispose());
+                            } else {
+                                child.material.dispose();
+                            }
+                        }
+                    }
+                });
+                
+                this.mesh = null;
+            }
+            
+            console.log("Hunter boss resources cleaned up");
+        } catch (error) {
+            console.error("Error cleaning up Hunter boss resources:", error);
+        }
     }
     
     get collisionRadius() {

@@ -31,6 +31,8 @@ export class Projectile {
             type = "magic";
         } else if (color === 0xccffcc) {
             type = "knife";
+        } else if (color === 0xff3333 && !isFromPlayer) {
+            type = "enemy";
         }
         
         // Get a projectile instance from the manager

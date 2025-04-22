@@ -9,7 +9,8 @@ export class ProjectileManager {
         this.pools = {
             standard: [],
             magic: [],
-            knife: []
+            knife: [],
+            enemy: []
         };
         
         // Pool for hit effects
@@ -40,7 +41,8 @@ export class ProjectileManager {
         this.geometries = {
             standard: new THREE.SphereGeometry(0.2, 8, 8),
             magic: new THREE.SphereGeometry(0.3, 12, 12),
-            knife: new THREE.ConeGeometry(0.15, 0.4, 8)
+            knife: new THREE.ConeGeometry(0.15, 0.4, 8),
+            enemy: new THREE.SphereGeometry(0.25, 8, 8)
         };
         
         // Base materials (will be cloned and modified for specific instances)
@@ -56,6 +58,10 @@ export class ProjectileManager {
             knife: new THREE.MeshBasicMaterial({
                 transparent: true,
                 opacity: 1.0
+            }),
+            enemy: new THREE.MeshBasicMaterial({
+                transparent: true,
+                opacity: 0.9
             }),
             trail: new THREE.MeshBasicMaterial({
                 transparent: true,
@@ -78,7 +84,8 @@ export class ProjectileManager {
         const maxInstances = {
             standard: 100,
             magic: 50,
-            knife: 50
+            knife: 50,
+            enemy: 50
         };
         
         // Create instanced meshes
@@ -193,7 +200,8 @@ export class ProjectileManager {
         this.trailSystems = {
             standard: createTrailSystem(500, 0.2, 0x00aaff),  // Player (blue)
             magic: createTrailSystem(300, 0.3, 0x00ccff),     // Magic (cyan)
-            knife: createTrailSystem(200, 0.15, 0xccffcc)     // Knife (light green)
+            knife: createTrailSystem(200, 0.15, 0xccffcc),    // Knife (light green)
+            enemy: createTrailSystem(300, 0.2, 0xff3333)      // Enemy (red)
         };
     }
     
@@ -244,6 +252,8 @@ export class ProjectileManager {
             poolType = 'magic';
         } else if (color === 0xccffcc) {
             poolType = 'knife';
+        } else if (color === 0xff3333 && !isFromPlayer) {
+            poolType = 'enemy';
         }
         
         let projectile;
@@ -697,6 +707,7 @@ export class ProjectileManager {
         this.pools.standard = [];
         this.pools.magic = [];
         this.pools.knife = [];
+        this.pools.enemy = [];
         this.hitEffectPool = [];
     }
 } 

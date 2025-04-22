@@ -38,13 +38,28 @@ export class UI {
         this.avatarCircle.style.width = '40px';
         this.avatarCircle.style.height = '40px';
         this.avatarCircle.style.borderRadius = '50%';
-        this.avatarCircle.style.backgroundColor = 'var(--primary-green)';
+        this.avatarCircle.style.backgroundColor = 'var(--light-brown)'; // Fallback background
         this.avatarCircle.style.marginRight = '15px';
         this.avatarCircle.style.display = 'flex';
         this.avatarCircle.style.justifyContent = 'center';
         this.avatarCircle.style.alignItems = 'center';
         this.avatarCircle.style.boxShadow = 'var(--shadow)';
         this.avatarCircle.style.border = '2px solid var(--white)';
+        this.avatarCircle.style.backgroundSize = 'cover';
+        this.avatarCircle.style.backgroundPosition = 'center';
+        this.avatarCircle.style.overflow = 'hidden';
+        
+        // Try to load and display the Hat01.png image
+        const avatarImage = new Image();
+        avatarImage.src = '/assets/Hat01.png';
+        avatarImage.onload = () => {
+            this.avatarCircle.style.backgroundImage = `url('/assets/Hat01.png')`;
+        };
+        avatarImage.onerror = (err) => {
+            console.warn('Failed to load avatar image, using fallback color', err);
+            // Keep the fallback color that's already set
+        };
+        
         this.avatarContainer.appendChild(this.avatarCircle);
         
         // Level display

@@ -14,7 +14,7 @@ export class HunterBoss extends BaseEnemy {
         // Scale health, damage and rewards with boss level
         this.maxHealth = 120 * bossLevel; // Lower health but faster and more agile
         this.health = this.maxHealth;
-        this.damage = 15 + (8 * bossLevel); // Medium damage
+        this.damage = 12 + (5 * bossLevel); // Medium damage (reduced from 15+5 to 12+5 per level)
         this.experienceValue = 500 * bossLevel;
         
         // Movement properties - fastest of all bosses
@@ -24,17 +24,18 @@ export class HunterBoss extends BaseEnemy {
         this.lastDashTime = 0;
         this.isDashing = false;
         this.dashTarget = null;
+        this.dashHitPlayers = new Set(); // Track which players were hit during this dash
         
-        this.attackCooldown = 1000; // ms between attacks (fast attacks)
-        this.specialAttackCooldown = 5000; // ms between special attacks
+        this.attackCooldown = 500; // ms between attacks (reduced from 1000 to 500)
+        this.specialAttackCooldown = 2500; // ms between special attacks (reduced from 5000 to 2500)
         this.lastSpecialAttackTime = 0;
-        this.attackRange = 2; // Short attack range for melee
-        this.rangedAttackRange = 15; // Long range for ranged attacks
+        this.attackRange = 3; // Short attack range for melee (increased from 2 to 3)
+        this.rangedAttackRange = 20; // Long range for ranged attacks (increased from 15 to 20)
         this.preferredDistance = 8; // Tries to maintain this distance
         this.defaultColor = 0x00ff99; // Green-cyan
         
         // Hunter appearance vars
-        this.size = 1.0 + (bossLevel * 0.3); // Smaller but faster
+        this.size = 1.0 + (bossLevel * 0.1); // Smaller but faster (reduced scale factor from 0.3 to 0.1)
         
         // Attack patterns
         this.attackPatterns = [
@@ -84,7 +85,7 @@ export class HunterBoss extends BaseEnemy {
             
             // Position the mesh
             this.mesh.position.copy(position);
-            this.mesh.position.y = this.size * 0.75; // Half height
+            this.mesh.position.y = 0; // Consistent with model position (-1.0 is applied to the model within the mesh)
             
             // Create head
             const headGeometry = new THREE.SphereGeometry(this.size * 0.3, 12, 12);
@@ -225,7 +226,7 @@ export class HunterBoss extends BaseEnemy {
                     this.model.scale.set(modelScale, modelScale, modelScale);
                     
                     // Position the model properly - adjust Y position to ground level
-                    this.model.position.y = -2.2; // Fine-tuned position for proper ground placement
+                    this.model.position.y = -0.5; // Set to -0.5 for better ground alignment
                     
                     // Make sure model casts shadows
                     this.model.traverse((node) => {
@@ -248,7 +249,7 @@ export class HunterBoss extends BaseEnemy {
                     // Adjust health bar position for model
                     if (this.healthBarBg) {
                         // Position health bar higher above the model
-                        this.healthBarBg.position.y = 6.0 + (this.bossLevel * 0.5);
+                        this.healthBarBg.position.y = 4.0 + (this.bossLevel * 0.5);
                     }
                     
                     // Set up animations if they exist
@@ -643,6 +644,7 @@ export class HunterBoss extends BaseEnemy {
             
             // Create the projectile
             const knifeSize = 0.2 + (this.bossLevel * 0.05);
+            const knifeDamage = this.damage * 0.7; // 70% of regular damage
             
             // Start position - from center of hunter
             const startPosition = this.mesh.position.clone();
@@ -653,6 +655,8 @@ export class HunterBoss extends BaseEnemy {
             direction.z += (Math.random() * 0.1) - 0.05;
             direction.normalize();
             
+            console.log(`Creating knife projectile with damage: ${knifeDamage}`);
+            
             // Create knife projectile with new API format - use knife color
             const projectile = new Projectile(
                 this.scene,
@@ -660,7 +664,7 @@ export class HunterBoss extends BaseEnemy {
                 direction,
                 0.08, // speed
                 knifeSize, // size
-                this.damage * 0.7, // damage
+                knifeDamage, // damage
                 0xccffcc, // Use knife color (light green) for proper pooling
                 false, // not from player
                 null, // no target
@@ -698,9 +702,35 @@ export class HunterBoss extends BaseEnemy {
                     continue;
                 }
                 
-                // Check collision with player if this is managed here
+                // Check collision with player using the ProjectileManager's method first
+                let playerHit = false;
                 if (projectile.checkPlayerCollision) {
-                    projectile.checkPlayerCollision(this.player);
+                    playerHit = projectile.checkPlayerCollision(this.player);
+                    if (playerHit) {
+                        console.log(`Hunter projectile hit player for ${projectile.damage} damage!`);
+                    }
+                } else {
+                    // Manual collision check as fallback if the standard method is unavailable
+                    const playerPos = this.player.getPosition();
+                    
+                    // Handle both position formats (direct position or mesh.position)
+                    let projectilePos;
+                    if (projectile.position) {
+                        projectilePos = projectile.position;
+                    } else if (projectile.mesh && projectile.mesh.position) {
+                        projectilePos = projectile.mesh.position;
+                    } else {
+                        continue; // Skip if no position available
+                    }
+                    
+                    const distance = projectilePos.distanceTo(playerPos);
+                    
+                    if (distance < (projectile.size + 0.5)) {
+                        console.log(`Hunter projectile hit player for ${projectile.damage} damage (fallback collision)!`);
+                        this.player.takeDamage(projectile.damage);
+                        projectile.deactivate();
+                        playerHit = true;
+                    }
                 }
             }
         } catch (error) {
@@ -962,6 +992,9 @@ export class HunterBoss extends BaseEnemy {
             this.lastDashTime = currentTime;
             this.isDashing = true;
             
+            // Clear the set of hit players for this new dash
+            this.dashHitPlayers.clear();
+            
             // Store starting position for trail effect
             const startPosition = this.mesh.position.clone();
             
@@ -1000,6 +1033,7 @@ export class HunterBoss extends BaseEnemy {
             setTimeout(() => {
                 if (this.isAlive) {
                     this.isDashing = false;
+                    this.dashHitPlayers.clear(); // Clear hit tracking when dash ends
                     
                     // Return to normal animation
                     if (this.mixer && this.animationActions['Run']) {
@@ -1027,9 +1061,12 @@ export class HunterBoss extends BaseEnemy {
             this.isDashing = false;
             this.dashTarget = null;
             this.lastDashTime = Date.now();
+            this.dashHitPlayers.clear(); // Clear hit tracking when dash ends
             
-            // Check if we hit the player during dash
-            this.checkDashHit();
+            // Return to normal animation
+            if (this.mixer && this.animationActions['Run']) {
+                this.playAnimation('Run');
+            }
         } else {
             // Continue dashing
             direction.normalize();
@@ -1050,9 +1087,16 @@ export class HunterBoss extends BaseEnemy {
         const playerPosition = this.player.getPosition();
         const distanceToPlayer = new THREE.Vector3().subVectors(playerPosition, this.mesh.position).length();
         
-        if (distanceToPlayer < this.size + 0.5) {
-            console.log(`Hunter dash hit player for ${this.damage * 1.5} damage`);
-            this.player.takeDamage(this.damage * 1.5);
+        // Get or generate a unique identifier for the player
+        const playerId = this.player.id || 'player'; // Fallback to 'player' if no id exists
+        
+        // Hit detection for player (check if we haven't already hit this player during this dash)
+        if (distanceToPlayer < this.size + 0.5 && !this.dashHitPlayers.has(playerId)) {
+            console.log(`Hunter dash hit player for ${this.damage * 2.0} damage`);
+            this.player.takeDamage(this.damage * 2.0); // Reduced from 2.5x to 2.0x damage
+            
+            // Add player to the set of hit players
+            this.dashHitPlayers.add(playerId);
             
             // Create hit effect
             this.createDashHitEffect();
@@ -1210,6 +1254,9 @@ export class HunterBoss extends BaseEnemy {
                         position.y = this.size * 0.8;
                         
                         const knifeSize = 0.2;
+                        const knifeDamage = this.damage * 0.5; // 50% damage for multiple knives
+                        
+                        console.log(`Creating special knife projectile with damage: ${knifeDamage}`);
                         
                         // Create projectile with Projectile class (using the correct constructor format)
                         const projectile = new Projectile(
@@ -1218,7 +1265,7 @@ export class HunterBoss extends BaseEnemy {
                             direction,
                             0.3,                    // Speed
                             knifeSize,              // Size
-                            this.damage * 0.5,      // Damage
+                            knifeDamage,            // Damage
                             0xccffcc,               // Light green color for knives
                             false,                  // Not from player
                             null,                   // No target

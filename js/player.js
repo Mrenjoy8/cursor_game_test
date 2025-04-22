@@ -5,7 +5,7 @@ import { Projectile } from './projectile.js';
 export class Player {
     constructor(scene) {
         this.scene = scene;
-        this.moveSpeed = 0.15;
+        this.moveSpeed = 0.03;
         this.health = 100;
         this.maxHealth = 100;
         this.level = 1;
@@ -234,25 +234,27 @@ export class Player {
         const rightVector = new THREE.Vector3();
         rightVector.crossVectors(camera.up, cameraDirection).normalize();
         
-        // Apply movement inputs
+        // Apply movement inputs with deltaTime
         if (this.movementKeys.forward) {
-            this.velocity.add(cameraDirection.clone().multiplyScalar(this.moveSpeed));
+            this.velocity.add(cameraDirection.clone().multiplyScalar(this.moveSpeed * deltaTime));
         }
         if (this.movementKeys.backward) {
-            this.velocity.add(cameraDirection.clone().multiplyScalar(-this.moveSpeed));
+            this.velocity.add(cameraDirection.clone().multiplyScalar(-this.moveSpeed * deltaTime));
         }
         if (this.movementKeys.left) {
-            this.velocity.add(rightVector.clone().multiplyScalar(-this.moveSpeed));
+            this.velocity.add(rightVector.clone().multiplyScalar(-this.moveSpeed * deltaTime));
         }
         if (this.movementKeys.right) {
-            this.velocity.add(rightVector.clone().multiplyScalar(this.moveSpeed));
+            this.velocity.add(rightVector.clone().multiplyScalar(this.moveSpeed * deltaTime));
         }
         
         // Move player
         if (this.velocity.length() > 0) {
             // Normalize velocity if moving diagonally to prevent faster diagonal movement
-            if (this.velocity.length() > this.moveSpeed) {
-                this.velocity.normalize().multiplyScalar(this.moveSpeed);
+            // We need to compare against moveSpeed * deltaTime now
+            const maxSpeed = this.moveSpeed * deltaTime;
+            if (this.velocity.length() > maxSpeed) {
+                this.velocity.normalize().multiplyScalar(maxSpeed);
             }
             
             // Update position

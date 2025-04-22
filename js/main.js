@@ -9,6 +9,7 @@ import { WaveManager } from './waveManager.js';
 import { SkillSystem } from './skillSystem.js';
 import { MenuUI } from './menuUI.js';
 import { Projectile } from './projectile.js';
+import { HamsterCage } from './hamsterCage.js';
 
 // Game class to handle core functionality
 class Game {
@@ -24,7 +25,8 @@ class Game {
         // Create the renderer first so we can see the menu
         this.renderer = new THREE.WebGLRenderer({ antialias: true });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.renderer.shadowMap.enabled = true;
+        // Disable shadow maps for better performance
+        this.renderer.shadowMap.enabled = false;
         document.body.appendChild(this.renderer.domElement);
         
         // Create menu UI
@@ -168,6 +170,10 @@ class Game {
     }
     
     setupGameScene() {
+        // Set up scene with black background
+        this.scene = new THREE.Scene();
+        this.scene.background = new THREE.Color(0x000000);
+        
         // Set up lighting
         this.setupLights();
         
@@ -355,88 +361,60 @@ class Game {
     }
     
     setupLights() {
-        // Ambient light
-        const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+        // Simple ambient light - stronger since we're using MeshBasicMaterial
+        const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
         this.scene.add(ambientLight);
         
-        // Directional light (sun)
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        // Simple directional light - no shadows for better performance
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
         directionalLight.position.set(5, 10, 7.5);
-        directionalLight.castShadow = true;
-        
-        // Set up shadow properties
-        directionalLight.shadow.mapSize.width = 2048;
-        directionalLight.shadow.mapSize.height = 2048;
-        directionalLight.shadow.camera.near = 0.5;
-        directionalLight.shadow.camera.far = 100;
-        
-        const d = 30;
-        directionalLight.shadow.camera.left = -d;
-        directionalLight.shadow.camera.right = d;
-        directionalLight.shadow.camera.top = d;
-        directionalLight.shadow.camera.bottom = -d;
-        
+        // No shadow casting for better performance
         this.scene.add(directionalLight);
     }
     
     createArena() {
-        // Floor
-        const floorGeometry = new THREE.PlaneGeometry(60, 60);
-        const floorMaterial = new THREE.MeshStandardMaterial({ 
-            color: 0x555555,
-            roughness: 0.8
-        });
-        const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-        floor.rotation.x = -Math.PI / 2;
-        floor.receiveShadow = true;
-        this.scene.add(floor);
+        // Create the hamster cage scene
+        this.hamsterCage = new HamsterCage(this.scene);
         
-        // Arena walls
-        const wallMaterial = new THREE.MeshStandardMaterial({ 
-            color: 0x777777,
-            roughness: 0.7,
-            transparent: true,
-            opacity: 0.5
-        });
+        // Set arena constraints for player/enemies
+        // We'll define invisible boundaries that restrict movement
+        const arenaWidth = 60;
+        const arenaDepth = 60;
         
         // North wall
         const northWall = new THREE.Mesh(
-            new THREE.BoxGeometry(60, 3, 1),
-            wallMaterial
+            new THREE.BoxGeometry(arenaWidth, 3, 1),
+            new THREE.MeshBasicMaterial({ visible: false })
         );
-        northWall.position.set(0, 1.5, -30);
-        northWall.castShadow = true;
-        northWall.receiveShadow = true;
+        northWall.position.set(0, 1.5, -arenaDepth/2);
+        northWall.name = "arena-boundary";
         this.scene.add(northWall);
         
         // South wall
         const southWall = new THREE.Mesh(
-            new THREE.BoxGeometry(60, 3, 1),
-            wallMaterial
+            new THREE.BoxGeometry(arenaWidth, 3, 1),
+            new THREE.MeshBasicMaterial({ visible: false })
         );
-        southWall.position.set(0, 1.5, 30);
-        southWall.castShadow = true;
-        southWall.receiveShadow = true;
+        southWall.position.set(0, 1.5, arenaDepth/2);
+        southWall.name = "arena-boundary";
         this.scene.add(southWall);
         
         // East wall
         const eastWall = new THREE.Mesh(
-            new THREE.BoxGeometry(1, 3, 60),
-            wallMaterial
+            new THREE.BoxGeometry(1, 3, arenaDepth),
+            new THREE.MeshBasicMaterial({ visible: false })
         );
-        eastWall.position.set(30, 1.5, 0);
-        eastWall.castShadow = true;
-        eastWall.receiveShadow = true;
+        eastWall.position.set(arenaWidth/2, 1.5, 0);
+        eastWall.name = "arena-boundary";
         this.scene.add(eastWall);
         
         // West wall
         const westWall = new THREE.Mesh(
-            new THREE.BoxGeometry(1, 3, 60),
-            wallMaterial
+            new THREE.BoxGeometry(1, 3, arenaDepth),
+            new THREE.MeshBasicMaterial({ visible: false })
         );
-        westWall.position.set(-30, 1.5, 0);
-        westWall.castShadow = true;
-        westWall.receiveShadow = true;
+        westWall.position.set(-arenaWidth/2, 1.5, 0);
+        westWall.name = "arena-boundary";
         this.scene.add(westWall);
     }
     

@@ -47,7 +47,7 @@ export class Player {
         // Create a temporary placeholder while the model loads
         const placeholder = new THREE.Group();
         const placeholderGeometry = new THREE.CylinderGeometry(0.5, 0.5, 1.5, 8);
-        const placeholderMaterial = new THREE.MeshStandardMaterial({ 
+        const placeholderMaterial = new THREE.MeshBasicMaterial({ 
             color: 0x3498db,
             transparent: true,
             opacity: 0.7
@@ -82,11 +82,22 @@ export class Player {
                 // Center model if needed - depends on your model's origin point
                 this.model.position.y = 0; // Adjust as needed
                 
-                // Make sure model casts shadows
+                // Make materials basic for better performance
                 this.model.traverse((node) => {
                     if (node.isMesh) {
-                        node.castShadow = true;
-                        node.receiveShadow = true;
+                        // Replace standard materials with basic materials
+                        if (node.material) {
+                            const color = node.material.color ? node.material.color.clone() : new THREE.Color(0x3498db);
+                            const opacity = node.material.opacity || 1.0;
+                            
+                            // Create a basic material with similar appearance
+                            node.material = new THREE.MeshBasicMaterial({
+                                color: color,
+                                transparent: opacity < 1.0,
+                                opacity: opacity,
+                                map: node.material.map || null
+                            });
+                        }
                     }
                 });
                 

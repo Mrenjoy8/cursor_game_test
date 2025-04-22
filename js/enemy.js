@@ -185,22 +185,6 @@ export class BaseEnemy {
         // Rotation - defaults to cone pointing up
         this.mesh.rotation.x = Math.PI;
         
-        // Add power ring if enemy is powered up
-        if (powerScaling > 1.0) {
-            material.emissive = new THREE.Color(this.defaultColor);
-            material.emissiveIntensity = Math.min((powerScaling - 1) * 0.5, 0.7); // Intensity based on scaling
-            
-            // Add outline glow ring to indicate power
-            const ringGeometry = new THREE.TorusGeometry(0.7, 0.05, 8, 24);
-            const ringMaterial = new THREE.MeshBasicMaterial({
-                color: 0xffff00,
-                transparent: true,
-                opacity: 0.7
-            });
-            this.powerRing = new THREE.Mesh(ringGeometry, ringMaterial);
-            this.powerRing.rotation.x = Math.PI / 2; // Align with ground
-        }
-        
         // Create a health bar
         this.createHealthBar();
         
@@ -298,17 +282,6 @@ export class BaseEnemy {
     }
     
     reset(position, powerScaling = 1.0) {
-        // Clean up any existing power ring
-        if (this.powerRing) {
-            if (this.mesh) {
-                this.mesh.remove(this.powerRing);
-            }
-            this.scene.remove(this.powerRing);
-            if (this.powerRing.geometry) this.powerRing.geometry.dispose();
-            if (this.powerRing.material) this.powerRing.material.dispose();
-            this.powerRing = null;
-        }
-        
         // Reset enemy state when pulled from pool
         this.isAlive = true;
         
@@ -356,61 +329,6 @@ export class BaseEnemy {
                 
                 this.mesh.material.opacity = 1;
                 this.mesh.material.transparent = false;
-                
-                // Add emissive glow for powered up enemies
-                if (powerScaling > 1.0) {
-                    this.mesh.material.emissive = new THREE.Color(this.defaultColor);
-                    this.mesh.material.emissiveIntensity = Math.min((powerScaling - 1) * 0.5, 0.7);
-                    
-                    // Create new power ring
-                    let ringRadius = 0.7; // Default size
-                    
-                    // Adjust ring size based on enemy type
-                    switch(this.type) {
-                        case EnemyType.FAST:
-                            ringRadius = 0.6;
-                            break;
-                        case EnemyType.TANKY:
-                            ringRadius = 0.9;
-                            break;
-                        case EnemyType.RANGED:
-                            ringRadius = 0.7;
-                            break;
-                        default: // BASIC
-                            ringRadius = 0.7;
-                    }
-                    
-                    // Create ring
-                    const ringGeometry = new THREE.TorusGeometry(ringRadius, 0.05, 8, 24);
-                    const ringMaterial = new THREE.MeshBasicMaterial({
-                        color: 0xffff00,
-                        transparent: true,
-                        opacity: 0.7
-                    });
-                    this.powerRing = new THREE.Mesh(ringGeometry, ringMaterial);
-                    this.powerRing.rotation.x = Math.PI / 2; // Align with ground
-                    
-                    // Add to mesh with proper position
-                    let ringYOffset = -0.65; // Default for BASIC
-                    
-                    // Adjust Y offset based on enemy type
-                    switch(this.type) {
-                        case EnemyType.FAST:
-                            ringYOffset = -0.3;
-                            break;
-                        case EnemyType.TANKY:
-                            ringYOffset = -0.8;
-                            break;
-                        case EnemyType.RANGED:
-                            ringYOffset = -0.4;
-                            break;
-                        default: // BASIC
-                            ringYOffset = -0.65;
-                    }
-                    
-                    this.mesh.add(this.powerRing);
-                    this.powerRing.position.set(0, ringYOffset, 0);
-                }
             }
             
             // Only update position if specifically provided
@@ -858,12 +776,6 @@ export class BasicEnemy extends BaseEnemy {
             opacity: 0.5 // Make it semi-transparent
         });
         
-        // Add enhanced glow effect for powered up enemies
-        if (powerScaling > 1.0) {
-            material.emissive = new THREE.Color(this.defaultColor);
-            material.emissiveIntensity = Math.min((powerScaling - 1) * 0.5, 0.7); // Intensity based on scaling
-        }
-        
         const placeholderMesh = new THREE.Mesh(geometry, material);
         placeholderMesh.castShadow = true;
         // Don't flip the cone upside down
@@ -881,23 +793,6 @@ export class BasicEnemy extends BaseEnemy {
         
         // Create a health bar
         this.createHealthBar();
-        
-        // Add power ring if enemy is powered up
-        if (powerScaling > 1.0) {
-            const ringGeometry = new THREE.TorusGeometry(0.7, 0.05, 8, 24);
-            const ringMaterial = new THREE.MeshBasicMaterial({
-                color: 0xffff00,
-                transparent: true,
-                opacity: 0.7
-            });
-            this.powerRing = new THREE.Mesh(ringGeometry, ringMaterial);
-            this.powerRing.rotation.x = Math.PI / 2; // Align with ground
-            
-            // Only add to mesh, not to scene directly
-            this.mesh.add(this.powerRing);
-            // Position relative to mesh
-            this.powerRing.position.set(0, -0.65, 0);
-        }
         
         // Load the glTF model
         const loader = new GLTFLoader();
@@ -951,12 +846,6 @@ export class BasicEnemy extends BaseEnemy {
                     if (this.animationActions['Run']) {
                         this.playAnimation('Run');
                     }
-                }
-                
-                // Add power ring on top of the model if it exists
-                if (this.powerRing) {
-                    // Adjust position based on model height
-                    this.powerRing.position.y = 0; // Adjust this value based on your model
                 }
             },
             (xhr) => {
@@ -1015,12 +904,6 @@ export class FastEnemy extends BaseEnemy {
             opacity: 0.5 // Make it semi-transparent
         });
         
-        // Add enhanced glow effect for powered up enemies
-        if (powerScaling > 1.0) {
-            material.emissive = new THREE.Color(this.defaultColor);
-            material.emissiveIntensity = Math.min((powerScaling - 1) * 0.5, 0.7); // Intensity based on scaling
-        }
-        
         const placeholderMesh = new THREE.Mesh(geometry, material);
         placeholderMesh.castShadow = true;
         placeholder.add(placeholderMesh);
@@ -1037,23 +920,6 @@ export class FastEnemy extends BaseEnemy {
         
         // Create a health bar
         this.createHealthBar();
-        
-        // Add power ring if enemy is powered up
-        if (powerScaling > 1.0) {
-            const ringGeometry = new THREE.TorusGeometry(0.6, 0.05, 8, 24);
-            const ringMaterial = new THREE.MeshBasicMaterial({
-                color: 0xffff00,
-                transparent: true,
-                opacity: 0.7
-            });
-            this.powerRing = new THREE.Mesh(ringGeometry, ringMaterial);
-            this.powerRing.rotation.x = Math.PI / 2; // Align with ground
-            
-            // Only add to mesh, not to scene directly
-            this.mesh.add(this.powerRing);
-            // Position relative to mesh
-            this.powerRing.position.set(0, -0.3, 0);
-        }
         
         // Load the glTF model
         const loader = new GLTFLoader();
@@ -1107,12 +973,6 @@ export class FastEnemy extends BaseEnemy {
                     if (this.animationActions['Run']) {
                         this.playAnimation('Run');
                     }
-                }
-                
-                // Add power ring on top of the model if it exists
-                if (this.powerRing) {
-                    // Adjust position based on model height
-                    this.powerRing.position.y = 0; // Adjust this value based on your model
                 }
             },
             (xhr) => {
@@ -1173,12 +1033,6 @@ export class TankyEnemy extends BaseEnemy {
             opacity: 0.5 // Make it semi-transparent
         });
         
-        // Add enhanced glow effect for powered up enemies
-        if (powerScaling > 1.0) {
-            material.emissive = new THREE.Color(this.defaultColor);
-            material.emissiveIntensity = Math.min((powerScaling - 1) * 0.5, 0.7); // Intensity based on scaling
-        }
-        
         const placeholderMesh = new THREE.Mesh(geometry, material);
         placeholderMesh.castShadow = true;
         placeholder.add(placeholderMesh);
@@ -1195,23 +1049,6 @@ export class TankyEnemy extends BaseEnemy {
         
         // Create a health bar
         this.createHealthBar();
-        
-        // Add power ring if enemy is powered up
-        if (powerScaling > 1.0) {
-            const ringGeometry = new THREE.TorusGeometry(0.9, 0.05, 8, 24);
-            const ringMaterial = new THREE.MeshBasicMaterial({
-                color: 0xffff00,
-                transparent: true,
-                opacity: 0.7
-            });
-            this.powerRing = new THREE.Mesh(ringGeometry, ringMaterial);
-            this.powerRing.rotation.x = Math.PI / 2; // Align with ground
-            
-            // Only add to mesh, not to scene directly
-            this.mesh.add(this.powerRing);
-            // Position relative to mesh
-            this.powerRing.position.set(0, -0.8, 0);
-        }
         
         // Load the glTF model
         const loader = new GLTFLoader();
@@ -1265,12 +1102,6 @@ export class TankyEnemy extends BaseEnemy {
                     if (this.animationActions['Run']) {
                         this.playAnimation('Run');
                     }
-                }
-                
-                // Add power ring on top of the model if it exists
-                if (this.powerRing) {
-                    // Adjust position based on model height
-                    this.powerRing.position.y = 0; // Adjust this value based on your model
                 }
             },
             (xhr) => {
@@ -1334,12 +1165,6 @@ export class RangedEnemy extends BaseEnemy {
             opacity: 0.5 // Make it semi-transparent
         });
         
-        // Add enhanced glow effect for powered up enemies
-        if (powerScaling > 1.0) {
-            material.emissive = new THREE.Color(this.defaultColor);
-            material.emissiveIntensity = Math.min((powerScaling - 1) * 0.5, 0.7); // Intensity based on scaling
-        }
-        
         const placeholderMesh = new THREE.Mesh(geometry, material);
         placeholderMesh.castShadow = true;
         placeholder.add(placeholderMesh);
@@ -1356,23 +1181,6 @@ export class RangedEnemy extends BaseEnemy {
         
         // Create a health bar
         this.createHealthBar();
-        
-        // Add power ring if enemy is powered up
-        if (powerScaling > 1.0) {
-            const ringGeometry = new THREE.TorusGeometry(0.7, 0.05, 8, 24);
-            const ringMaterial = new THREE.MeshBasicMaterial({
-                color: 0xffff00,
-                transparent: true,
-                opacity: 0.7
-            });
-            this.powerRing = new THREE.Mesh(ringGeometry, ringMaterial);
-            this.powerRing.rotation.x = Math.PI / 2; // Align with ground
-            
-            // Only add to mesh, not to scene directly
-            this.mesh.add(this.powerRing);
-            // Position relative to mesh
-            this.powerRing.position.set(0, -0.4, 0);
-        }
         
         // Load the glTF model
         const loader = new GLTFLoader();
@@ -1426,12 +1234,6 @@ export class RangedEnemy extends BaseEnemy {
                     if (this.animationActions['Run']) {
                         this.playAnimation('Run');
                     }
-                }
-                
-                // Add power ring on top of the model if it exists
-                if (this.powerRing) {
-                    // Adjust position based on model height
-                    this.powerRing.position.y = 0; // Adjust this value based on your model
                 }
             },
             (xhr) => {

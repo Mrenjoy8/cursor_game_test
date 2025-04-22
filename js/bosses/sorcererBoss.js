@@ -1,6 +1,7 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.module.js';
 import { BaseEnemy } from '../enemy.js';
 import { Projectile } from '../projectile.js';
+import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.157.0/examples/jsm/loaders/GLTFLoader.js';
 
 export class SorcererBoss extends BaseEnemy {
     constructor(scene, position, player, bossLevel = 1) {
@@ -31,6 +32,12 @@ export class SorcererBoss extends BaseEnemy {
         this.size = 1.2 + (bossLevel * 0.4); // Smaller than Titan
         this.spinSpeed = 0.02; // Fast spin
         
+        // Animation properties
+        this.mixer = null;
+        this.animationActions = {};
+        this.currentAnimation = null;
+        this.model = null;
+        
         // Attack patterns
         this.attackPatterns = [
             this.magicMissiles.bind(this),   // Multiple magic projectiles
@@ -55,125 +62,340 @@ export class SorcererBoss extends BaseEnemy {
     
     createEnemyMesh(position) {
         try {
-            // Create a floating sorcerer mesh
+            // Create a container group for the boss
+            this.mesh = new THREE.Group();
+            
+            // Create a temporary placeholder while the model loads
+            const placeholder = new THREE.Group();
             
             // Main body - robe shape
             const bodyGeometry = new THREE.ConeGeometry(this.size, this.size * 2, 8);
             const bodyMaterial = new THREE.MeshStandardMaterial({ 
                 color: this.defaultColor,
                 roughness: 0.7,
-                metalness: 0.3
+                metalness: 0.3,
+                transparent: true,
+                opacity: 0.6 // Make it semi-transparent
             });
-            this.mesh = new THREE.Mesh(bodyGeometry, bodyMaterial);
-            this.mesh.castShadow = true;
-            
-            // Position the mesh - float above ground
-            this.mesh.position.copy(position);
-            this.mesh.position.y = this.size + 0.5; // Float above ground
+            const placeholderBody = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            placeholderBody.castShadow = true;
+            placeholder.add(placeholderBody);
             
             // Create hood/head
             const hoodGeometry = new THREE.SphereGeometry(this.size * 0.6, 12, 12);
             const hoodMaterial = new THREE.MeshStandardMaterial({ 
                 color: 0x330066, // Darker purple
                 roughness: 0.5,
-                metalness: 0.2
+                metalness: 0.2,
+                transparent: true,
+                opacity: 0.6
             });
             
-            this.hood = new THREE.Mesh(hoodGeometry, hoodMaterial);
-            this.hood.position.y = this.size * 0.9;
-            this.mesh.add(this.hood);
+            const placeholderHood = new THREE.Mesh(hoodGeometry, hoodMaterial);
+            placeholderHood.position.y = this.size * 0.9;
+            placeholder.add(placeholderHood);
             
             // Create glowing eye in shadow of hood
             const eyeGeometry = new THREE.SphereGeometry(this.size * 0.15, 8, 8);
             const eyeMaterial = new THREE.MeshStandardMaterial({ 
                 color: 0x00ccff, // Cyan
                 emissive: 0x00ccff,
-                emissiveIntensity: 0.9
-            });
-            
-            this.eye = new THREE.Mesh(eyeGeometry, eyeMaterial);
-            this.eye.position.set(0, 0, this.size * 0.3);
-            this.hood.add(this.eye);
-            
-            // Create staff
-            const staffGeometry = new THREE.CylinderGeometry(this.size * 0.05, this.size * 0.05, this.size * 2, 6);
-            const staffMaterial = new THREE.MeshStandardMaterial({ 
-                color: 0x663300, // Brown
-                roughness: 0.6,
-                metalness: 0.2
-            });
-            
-            this.staff = new THREE.Mesh(staffGeometry, staffMaterial);
-            this.staff.position.set(this.size * 0.6, 0, 0);
-            this.staff.rotation.z = Math.PI / 6; // Angle outward
-            this.mesh.add(this.staff);
-            
-            // Create staff orb
-            const orbGeometry = new THREE.SphereGeometry(this.size * 0.2, 12, 12);
-            const orbMaterial = new THREE.MeshStandardMaterial({ 
-                color: 0x00ccff, // Cyan
-                emissive: 0x00ccff,
-                emissiveIntensity: 0.8,
+                emissiveIntensity: 0.9,
                 transparent: true,
-                opacity: 0.9
+                opacity: 0.6
             });
             
-            this.orb = new THREE.Mesh(orbGeometry, orbMaterial);
-            this.orb.position.y = this.size;
-            this.staff.add(this.orb);
+            const placeholderEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+            placeholderEye.position.set(0, 0, this.size * 0.3);
+            placeholderHood.add(placeholderEye);
             
-            // Create glow around orb
-            const glowLight = new THREE.PointLight(0x00ccff, 1, this.size * 8);
-            this.orb.add(glowLight);
+            // Position the mesh - float above ground
+            this.mesh.position.copy(position);
+            this.mesh.position.y = this.size + 0.5; // Float above ground
             
-            // Floating particles around the sorcerer
+            // Give placeholder a unique name for easy reference later
+            placeholder.name = "placeholder";
+            
+            // Add placeholder to the mesh container
+            this.mesh.add(placeholder);
+            
+            // Initialize particles array to avoid undefined error
             this.particles = [];
-            const particleCount = 5;
             
-            for (let i = 0; i < particleCount; i++) {
-                const particleGeometry = new THREE.SphereGeometry(this.size * 0.1, 6, 6);
-                const particleMaterial = new THREE.MeshBasicMaterial({ 
-                    color: 0x00ccff,
-                    transparent: true,
-                    opacity: 0.7
-                });
-                
-                const particle = new THREE.Mesh(particleGeometry, particleMaterial);
-                
-                // Position in orbit around sorcerer
-                const angle = (i / particleCount) * Math.PI * 2;
-                const radius = this.size * 1.5;
-                
-                particle.position.set(
-                    Math.cos(angle) * radius,
-                    this.size * 0.5,
-                    Math.sin(angle) * radius
-                );
-                
-                // Store orbit data
-                particle.userData = {
-                    orbitAngle: angle,
-                    orbitRadius: radius,
-                    orbitSpeed: 0.001 + (Math.random() * 0.002),
-                    verticalOffset: Math.random() * 0.5
-                };
-                
-                this.mesh.add(particle);
-                this.particles.push(particle);
-            }
-            
-            // Add to scene
+            // Add to scene - ONLY ADD THE MAIN CONTAINER
             this.scene.add(this.mesh);
             
-            console.log("Sorcerer boss mesh created successfully");
+            // Create health bar
+            this.createHealthBar();
+            
+            // Load the glTF model
+            const loader = new GLTFLoader();
+            const modelURL = '/models/sorcerer.gltf';
+            
+            loader.load(
+                modelURL,
+                (gltf) => {
+                    console.log('Sorcerer boss model loaded successfully');
+                    
+                    // Find and remove the placeholder by name
+                    const placeholderObj = this.mesh.getObjectByName("placeholder");
+                    if (placeholderObj) {
+                        // Properly dispose of placeholder geometries and materials
+                        placeholderObj.traverse((child) => {
+                            if (child.isMesh) {
+                                if (child.geometry) child.geometry.dispose();
+                                if (child.material) child.material.dispose();
+                            }
+                        });
+                        this.mesh.remove(placeholderObj);
+                    }
+                    
+                    // Remove any existing model from the scene (in case there's one already)
+                    const existingModel = this.mesh.getObjectByName("sorcerer3DModel");
+                    if (existingModel) {
+                        // Properly dispose of existing model resources
+                        existingModel.traverse((child) => {
+                            if (child.isMesh) {
+                                if (child.geometry) child.geometry.dispose();
+                                if (child.material) child.material.dispose();
+                            }
+                        });
+                        this.mesh.remove(existingModel);
+                    }
+                    
+                    // Create our own container for the model to control positioning
+                    const modelContainer = new THREE.Group();
+                    modelContainer.name = "sorcerer3DModel";
+                    
+                    // Add the loaded model to our container
+                    this.model = gltf.scene;
+                    
+                    // Apply scale adjustments based on boss level
+                    const modelScale = 3.0 + (this.bossLevel * 0.5);
+                    this.model.scale.set(modelScale, modelScale, modelScale);
+                    
+                    // Position the model properly - adjust Y position to ground level
+                    this.model.position.y = -2.2; // Fine-tuned position for proper ground placement
+                    
+                    // Make sure model casts shadows
+                    this.model.traverse((node) => {
+                        if (node.isMesh) {
+                            node.castShadow = true;
+                            node.receiveShadow = true;
+                            
+                            // Store original material colors for visual effects
+                            if (!this._originalMaterials) {
+                                this._originalMaterials = new Map();
+                            }
+                            this._originalMaterials.set(node, node.material.color.clone());
+                            
+                            // Add emissive glow for boss
+                            node.material.emissive = new THREE.Color(this.defaultColor);
+                            node.material.emissiveIntensity = 0.2 + (this.bossLevel * 0.1);
+                        }
+                    });
+                    
+                    // Add model to container, then add container to mesh
+                    modelContainer.add(this.model);
+                    this.mesh.add(modelContainer);
+                    
+                    // Adjust health bar position for model
+                    if (this.healthBarBg) {
+                        // Position health bar higher above the model
+                        this.healthBarBg.position.y = 6.0 + (this.bossLevel * 0.5);
+                    }
+                    
+                    // Set up animations if they exist
+                    if (gltf.animations && gltf.animations.length) {
+                        this.mixer = new THREE.AnimationMixer(this.model);
+                        
+                        // Store all animations
+                        gltf.animations.forEach((clip) => {
+                            this.animationActions[clip.name] = this.mixer.clipAction(clip);
+                            console.log(`Loaded animation: ${clip.name}`);
+                        });
+                        
+                        // Start the run animation by default
+                        if (this.animationActions['Run']) {
+                            this.playAnimation('Run');
+                        }
+                    }
+                    
+                    // Create floating particles around the sorcerer model
+                    this.createFloatingParticles();
+                    
+                    console.log("Sorcerer boss 3D model setup complete");
+                },
+                (xhr) => {
+                    console.log(`Loading sorcerer boss model: ${(xhr.loaded / xhr.total * 100)}% loaded`);
+                },
+                (error) => {
+                    console.error('Error loading sorcerer boss model:', error);
+                    // Create traditional visuals as fallback
+                    this.createTraditionalVisuals();
+                }
+            );
+            
+            console.log("Sorcerer boss mesh creation initiated");
         } catch (error) {
             console.error("Error creating Sorcerer boss mesh:", error);
+            // Attempt to create traditional visuals
+            this.createTraditionalVisuals();
+        }
+    }
+    
+    createTraditionalVisuals() {
+        // This function creates the original visual style if model loading fails
+        console.log("Creating traditional sorcerer visuals as fallback");
+        
+        // Clear any existing children
+        while(this.mesh.children.length > 0) {
+            const child = this.mesh.children[0];
+            if (child.isMesh) {
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) child.material.dispose();
+            }
+            this.mesh.remove(child);
+        }
+        
+        // Create hood/head
+        const hoodGeometry = new THREE.SphereGeometry(this.size * 0.6, 12, 12);
+        const hoodMaterial = new THREE.MeshStandardMaterial({ 
+            color: 0x330066, // Darker purple
+            roughness: 0.5,
+            metalness: 0.2
+        });
+        
+        this.hood = new THREE.Mesh(hoodGeometry, hoodMaterial);
+        this.hood.position.y = this.size * 0.9;
+        this.mesh.add(this.hood);
+        
+        // Create glowing eye in shadow of hood
+        const eyeGeometry = new THREE.SphereGeometry(this.size * 0.15, 8, 8);
+        const eyeMaterial = new THREE.MeshStandardMaterial({ 
+            color: 0x00ccff, // Cyan
+            emissive: 0x00ccff,
+            emissiveIntensity: 0.9
+        });
+        
+        this.eye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+        this.eye.position.set(0, 0, this.size * 0.3);
+        this.hood.add(this.eye);
+        
+        // Create staff
+        const staffGeometry = new THREE.CylinderGeometry(this.size * 0.05, this.size * 0.05, this.size * 2, 6);
+        const staffMaterial = new THREE.MeshStandardMaterial({ 
+            color: 0x663300, // Brown
+            roughness: 0.6,
+            metalness: 0.2
+        });
+        
+        this.staff = new THREE.Mesh(staffGeometry, staffMaterial);
+        this.staff.position.set(this.size * 0.6, 0, 0);
+        this.staff.rotation.z = Math.PI / 6; // Angle outward
+        this.mesh.add(this.staff);
+        
+        // Create staff orb
+        const orbGeometry = new THREE.SphereGeometry(this.size * 0.2, 12, 12);
+        const orbMaterial = new THREE.MeshStandardMaterial({ 
+            color: 0x00ccff, // Cyan
+            emissive: 0x00ccff,
+            emissiveIntensity: 0.8,
+            transparent: true,
+            opacity: 0.9
+        });
+        
+        this.orb = new THREE.Mesh(orbGeometry, orbMaterial);
+        this.orb.position.y = this.size;
+        this.staff.add(this.orb);
+        
+        // Create glow around orb
+        const glowLight = new THREE.PointLight(0x00ccff, 1, this.size * 8);
+        this.orb.add(glowLight);
+        
+        // Create particles
+        this.createFloatingParticles();
+    }
+    
+    createFloatingParticles() {
+        // Clean up any existing particles first
+        if (this.particles && this.particles.length > 0) {
+            for (const particle of this.particles) {
+                if (particle.geometry) particle.geometry.dispose();
+                if (particle.material) particle.material.dispose();
+                if (particle.parent) particle.parent.remove(particle);
+            }
+        }
+        
+        // Initialize or reset particles array
+        this.particles = [];
+        const particleCount = 5 + this.bossLevel;
+        
+        for (let i = 0; i < particleCount; i++) {
+            const particleGeometry = new THREE.SphereGeometry(this.size * 0.1, 6, 6);
+            const particleMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0x00ccff,
+                transparent: true,
+                opacity: 0.7
+            });
+            
+            const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+            
+            // Position in orbit around sorcerer
+            const angle = (i / particleCount) * Math.PI * 2;
+            const radius = this.size * 1.5;
+            
+            particle.position.set(
+                Math.cos(angle) * radius,
+                this.size * 0.5,
+                Math.sin(angle) * radius
+            );
+            
+            // Store orbit data
+            particle.userData = {
+                orbitAngle: angle,
+                orbitRadius: radius,
+                orbitSpeed: 0.001 + (Math.random() * 0.002),
+                verticalOffset: Math.random() * 0.5
+            };
+            
+            this.mesh.add(particle);
+            this.particles.push(particle);
+        }
+    }
+    
+    playAnimation(name) {
+        // Check if animation exists before attempting to play it
+        if (!this.animationActions[name]) {
+            return;
+        }
+        
+        // Stop current animation
+        if (this.currentAnimation) {
+            this.currentAnimation.fadeOut(0.2);
+        }
+        
+        // Start new animation
+        this.currentAnimation = this.animationActions[name];
+        this.currentAnimation.reset().fadeIn(0.2).play();
+    }
+    
+    stopAnimation() {
+        // Stop current animation if one is playing
+        if (this.currentAnimation) {
+            this.currentAnimation.fadeOut(0.2);
+            this.currentAnimation = null;
         }
     }
     
     update(deltaTime) {
         try {
             if (!this.isAlive || !this.mesh) return;
+            
+            // Update animation mixer if it exists
+            if (this.mixer) {
+                this.mixer.update(deltaTime / 1000); // Convert to seconds for THREE.js
+            }
             
             // Update phase based on health percentage
             const healthPercentage = this.health / this.maxHealth;
@@ -206,9 +428,26 @@ export class SorcererBoss extends BaseEnemy {
                 if (distanceToPlayer < this.preferredDistance * 0.8) {
                     // Too close, move away
                     this.moveAwayFromPlayer(direction, distanceToPlayer, deltaTime);
+                    
+                    // Play run animation if available
+                    if (this.mixer && this.animationActions['Run'] && 
+                        (!this.currentAnimation || this.currentAnimation !== this.animationActions['Run'])) {
+                        this.playAnimation('Run');
+                    }
                 } else if (distanceToPlayer > this.preferredDistance * 1.2) {
                     // Too far, move closer
                     this.moveTowardsPlayer(direction, distanceToPlayer, deltaTime);
+                    
+                    // Play run animation if available
+                    if (this.mixer && this.animationActions['Run'] && 
+                        (!this.currentAnimation || this.currentAnimation !== this.animationActions['Run'])) {
+                        this.playAnimation('Run');
+                    }
+                } else {
+                    // In optimal range, can stop moving animation
+                    if (this.mixer && this.currentAnimation === this.animationActions['Run']) {
+                        this.stopAnimation();
+                    }
                 }
                 
                 // Always face the player
@@ -229,7 +468,7 @@ export class SorcererBoss extends BaseEnemy {
                 }
             }
             
-            // Update visual elements
+            // Update visual elements - floating particles, etc.
             this.updateVisuals(deltaTime);
             
             // Update projectiles
@@ -263,22 +502,26 @@ export class SorcererBoss extends BaseEnemy {
                 this.orb.rotation.y += 0.02 * deltaTime * 0.1;
             }
             
-            // Update orbiting particles
-            this.particles.forEach(particle => {
-                const data = particle.userData;
-                
-                // Update orbit position
-                data.orbitAngle += data.orbitSpeed * deltaTime;
-                
-                particle.position.x = Math.cos(data.orbitAngle) * data.orbitRadius;
-                particle.position.z = Math.sin(data.orbitAngle) * data.orbitRadius;
-                particle.position.y = this.size * 0.5 + Math.sin(time + data.verticalOffset) * 0.5;
-                
-                // Pulse opacity
-                if (particle.material) {
-                    particle.material.opacity = 0.5 + (Math.sin(time * 5 + data.orbitAngle) * 0.3);
-                }
-            });
+            // Update orbiting particles - add null check to prevent errors
+            if (this.particles && this.particles.length > 0) {
+                this.particles.forEach(particle => {
+                    if (!particle || !particle.userData) return;
+                    
+                    const data = particle.userData;
+                    
+                    // Update orbit position
+                    data.orbitAngle += data.orbitSpeed * deltaTime;
+                    
+                    particle.position.x = Math.cos(data.orbitAngle) * data.orbitRadius;
+                    particle.position.z = Math.sin(data.orbitAngle) * data.orbitRadius;
+                    particle.position.y = this.size * 0.5 + Math.sin(time + data.verticalOffset) * 0.5;
+                    
+                    // Pulse opacity
+                    if (particle.material) {
+                        particle.material.opacity = 0.5 + (Math.sin(time * 5 + data.orbitAngle) * 0.3);
+                    }
+                });
+            }
             
             // Change orb and eye color based on phase
             if (this.orb && this.eye) {
@@ -314,72 +557,107 @@ export class SorcererBoss extends BaseEnemy {
     
     // Sorcerer's ranged attack
     attackPlayer() {
-        try {
-            // Basic magic missile attack
-            if (!this.isAlive) return;
+        // Choose a random attack pattern
+        const attackIndex = Math.floor(Math.random() * this.attackPatterns.length);
+        this.attackPatterns[attackIndex]();
+        
+        // Flash color for visual feedback
+        this.flashColor(0xff9900); // Flash orange when attacking
+    }
+    
+    flashColor(color, duration = 200) {
+        // Store the original materials for 3D model
+        if (!this._originalMaterials && this.model) {
+            this._originalMaterials = new Map();
+            this.model.traverse((node) => {
+                if (node.isMesh && node.material) {
+                    this._originalMaterials.set(node, node.material.color.clone());
+                }
+            });
+        }
+        
+        if (this.model) {
+            // Flash the 3D model
+            this.model.traverse((node) => {
+                if (node.isMesh && node.material) {
+                    node.material.color.setHex(color);
+                }
+            });
             
-            console.log("Sorcerer casting magic missile");
+            // Reset after duration
+            setTimeout(() => {
+                if (this.model && this.isAlive) {
+                    this.model.traverse((node) => {
+                        if (node.isMesh && node.material) {
+                            const originalColor = this._originalMaterials.get(node);
+                            if (originalColor) {
+                                node.material.color.copy(originalColor);
+                            } else {
+                                // Fallback to default color if original not stored
+                                node.material.color.setHex(this.defaultColor);
+                            }
+                        }
+                    });
+                }
+            }, duration);
+        } 
+        // Fallback for traditional visuals
+        else if (this.hood && this.staff) {
+            // Store original colors
+            const hoodColor = this.hood.material.color.getHex();
+            const staffColor = this.staff.material.color.getHex();
             
-            // Get direction to player
-            const playerPosition = this.player.getPosition();
-            const direction = new THREE.Vector3();
-            direction.subVectors(playerPosition, this.mesh.position);
-            direction.y = 0; // Keep projectile flat
-            direction.normalize();
+            // Flash
+            this.hood.material.color.setHex(color);
+            this.staff.material.color.setHex(color);
             
-            // Staff animation - point at player
-            if (this.staff) {
-                this.staff.lookAt(this.mesh.worldToLocal(playerPosition.clone()));
-            }
-            
-            // Flash orb
-            if (this.orb) {
-                const originalIntensity = this.orb.material.emissiveIntensity;
-                this.orb.material.emissiveIntensity = 1.5;
-                setTimeout(() => {
-                    if (this.orb) this.orb.material.emissiveIntensity = originalIntensity;
-                }, 200);
-            }
-            
-            // Fire projectile from staff orb position
-            this.fireProjectile(direction);
-        } catch (error) {
-            console.error("Error in Sorcerer attackPlayer:", error);
+            // Reset after duration
+            setTimeout(() => {
+                if (this.hood && this.staff && this.isAlive) {
+                    this.hood.material.color.setHex(hoodColor);
+                    this.staff.material.color.setHex(staffColor);
+                }
+            }, duration);
         }
     }
     
-    fireProjectile(direction) {
+    fireProjectile(direction, position = null) {
         try {
-            // Get orb world position
-            const staffPosition = new THREE.Vector3();
-            this.orb.getWorldPosition(staffPosition);
+            // Get position for projectile
+            const projectilePosition = position || new THREE.Vector3().copy(this.mesh.position);
             
-            // Create projectile
+            // If no position provided, adjust height and add slight offset in direction
+            if (!position) {
+                projectilePosition.y = 1.5; // Adjust to match model or traditional visuals
+                
+                // Add slight offset in firing direction
+                projectilePosition.add(direction.clone().multiplyScalar(1));
+            }
+            
+            // Create projectile with boss styling
             const projectile = new Projectile(
                 this.scene,
-                staffPosition,
+                projectilePosition,
                 direction,
-                0.2,                      // faster speed
-                0.4,                      // medium size
-                this.damage,              // damage
-                0x00ccff,                 // cyan color
-                false,                    // not from player
-                null,                     // no target
-                4000                      // lifetime
+                0.025, // Speed
+                0.3,   // Size - larger than normal enemies
+                this.damage,
+                0x00ccff, // Color (cyan)
+                false,    // Not from player
+                this.player, // Target
+                5000      // Lifetime (ms)
             );
             
-            // Store reference for updating and cleanup
+            // Add to projectiles array for tracking
             this.projectiles.push(projectile);
             
-            // Limit max projectiles for performance
+            // Limit total projectiles to prevent memory issues
             if (this.projectiles.length > this.maxProjectiles) {
-                const oldestProjectile = this.projectiles.shift();
-                if (oldestProjectile.isActive) {
-                    oldestProjectile.deactivate();
-                }
+                const oldProjectile = this.projectiles.shift();
+                oldProjectile.deactivate();
             }
         } catch (error) {
-            console.error("Error firing Sorcerer projectile:", error);
+            console.error("Error in Sorcerer fireProjectile:", error);
         }
     }
     
@@ -418,33 +696,66 @@ export class SorcererBoss extends BaseEnemy {
     // Special attack methods
     magicMissiles() {
         try {
-            console.log("Sorcerer casting Magic Missiles");
+            // Multiple magic missiles attack
+            if (!this.isAlive) return;
             
-            // Flash body
-            this.flashColor(0x00ccff, 500);
+            console.log("Sorcerer casting magic missiles");
             
-            // Number of missiles based on phase
-            const missileCount = 3 + this.currentPhase;
+            // Play attack animation if available
+            if (this.mixer && this.animationActions['Attack']) {
+                this.playAnimation('Attack');
+                
+                // Return to Run animation after attack completes
+                setTimeout(() => {
+                    if (this.isAlive && this.mixer && this.animationActions['Run']) {
+                        this.playAnimation('Run');
+                    }
+                }, 1000);
+            }
             
-            // Staggered firing
+            // Get direction to player
+            const playerPosition = this.player.getPosition();
+            const baseDirection = new THREE.Vector3();
+            baseDirection.subVectors(playerPosition, this.mesh.position);
+            baseDirection.y = 0; // Keep projectile flat
+            baseDirection.normalize();
+            
+            // Staff animation - point at player (for traditional visuals)
+            if (this.staff) {
+                this.staff.lookAt(this.mesh.worldToLocal(playerPosition.clone()));
+                
+                // Flash orb
+                if (this.orb) {
+                    const originalIntensity = this.orb.material.emissiveIntensity;
+                    this.orb.material.emissiveIntensity = 1.5;
+                    setTimeout(() => {
+                        if (this.orb) this.orb.material.emissiveIntensity = originalIntensity;
+                    }, 200);
+                }
+            }
+            
+            // Number of missiles based on current phase
+            const missileCount = 2 + this.currentPhase;
+            
+            // Fire multiple missiles in spread pattern
             for (let i = 0; i < missileCount; i++) {
                 setTimeout(() => {
                     if (!this.isAlive) return;
                     
-                    const playerPosition = this.player.getPosition();
+                    // Create spread by adding angle variation
+                    const spread = (i - (missileCount - 1) / 2) * 0.2; // Spread in radians
+                    const direction = baseDirection.clone();
                     
-                    // Add small random offset to player position
-                    playerPosition.x += (Math.random() - 0.5) * 2;
-                    playerPosition.z += (Math.random() - 0.5) * 2;
+                    // Rotate direction vector by spread angle
+                    const rotationMatrix = new THREE.Matrix4().makeRotationY(spread);
+                    direction.applyMatrix4(rotationMatrix);
                     
-                    const direction = new THREE.Vector3();
-                    direction.subVectors(playerPosition, this.mesh.position);
-                    direction.y = 0;
-                    direction.normalize();
+                    // Fire projectile with boss position offset slightly towards player
+                    const spawnPos = this.mesh.position.clone().add(direction.clone().multiplyScalar(1));
+                    spawnPos.y = 1.5; // Adjust height based on model
                     
-                    // Fire projectile
-                    this.fireProjectile(direction);
-                }, i * 200);
+                    this.fireProjectile(direction, spawnPos);
+                }, i * 100); // Stagger the missiles
             }
         } catch (error) {
             console.error("Error in Sorcerer magicMissiles:", error);
@@ -453,127 +764,220 @@ export class SorcererBoss extends BaseEnemy {
     
     arcaneBlast() {
         try {
-            console.log("Sorcerer casting Arcane Blast");
+            // Large AoE blast attack
+            if (!this.isAlive) return;
             
-            // Charge animation
-            this.flashColor(0x9900ff, 1000);
+            console.log("Sorcerer charging arcane blast");
             
-            if (this.orb) {
-                // Make orb grow and glow
-                const originalScale = this.orb.scale.clone();
-                const growDuration = 1000;
-                const startTime = Date.now();
+            // Play special attack animation if available
+            if (this.mixer && this.animationActions['Special']) {
+                this.playAnimation('Special');
                 
-                const growAnimation = () => {
-                    const elapsed = Date.now() - startTime;
-                    const progress = Math.min(elapsed / growDuration, 1.0);
-                    
-                    // Grow the orb
-                    const scale = 1 + (progress * 2);
-                    this.orb.scale.set(scale, scale, scale);
-                    
-                    // Increase glow
-                    this.orb.material.emissiveIntensity = 0.8 + (progress * 1.2);
-                    
-                    if (progress < 1.0) {
-                        requestAnimationFrame(growAnimation);
-                    } else {
-                        // Finished charging, release blast
-                        this.releaseArcaneBlast();
-                        
-                        // Reset orb
-                        setTimeout(() => {
-                            if (this.orb) {
-                                this.orb.scale.copy(originalScale);
-                                this.orb.material.emissiveIntensity = 0.8;
-                            }
-                        }, 200);
-                    }
-                };
-                
-                growAnimation();
-            } else {
-                // No orb, just release after delay
+                // Return to default animation after attack completes
                 setTimeout(() => {
-                    this.releaseArcaneBlast();
-                }, 1000);
+                    if (this.isAlive && this.mixer && this.animationActions['Run']) {
+                        this.playAnimation('Run');
+                    }
+                }, 2000);
             }
+            
+            // Create charging effect - glowing sphere that grows
+            const chargeGeometry = new THREE.SphereGeometry(0.1, 16, 16);
+            const chargeMaterial = new THREE.MeshBasicMaterial({
+                color: 0x00ccff,
+                transparent: true,
+                opacity: 0.7
+            });
+            
+            const chargeEffect = new THREE.Mesh(chargeGeometry, chargeMaterial);
+            
+            // Position the charge effect
+            if (this.model) {
+                // Position for 3D model - center of the model, slightly elevated
+                chargeEffect.position.set(0, 2, 0);
+                this.mesh.add(chargeEffect);
+            } else if (this.orb) {
+                // Position for traditional visuals - at the orb
+                this.orb.add(chargeEffect);
+            } else {
+                // Fallback position
+                chargeEffect.position.set(0, 1, 0);
+                this.mesh.add(chargeEffect);
+            }
+            
+            // Add glow light
+            const chargeLight = new THREE.PointLight(0x00ccff, 2, 10);
+            chargeEffect.add(chargeLight);
+            
+            // Grow animation
+            const growAnimation = () => {
+                if (!this.isAlive) {
+                    // Clean up if boss is defeated during animation
+                    if (chargeEffect.parent) chargeEffect.parent.remove(chargeEffect);
+                    if (chargeEffect.geometry) chargeEffect.geometry.dispose();
+                    if (chargeEffect.material) chargeEffect.material.dispose();
+                    return;
+                }
+                
+                // Scale up to indicate charging
+                chargeEffect.scale.x += 0.1;
+                chargeEffect.scale.y += 0.1;
+                chargeEffect.scale.z += 0.1;
+                
+                // Adjust opacity based on size (fade as it grows)
+                chargeMaterial.opacity = Math.max(0.3, 0.7 - (chargeEffect.scale.x * 0.05));
+                
+                // Pulse light intensity
+                chargeLight.intensity = 2 + Math.sin(Date.now() * 0.01) * 1.5;
+                
+                // Continue animation if still charging
+                if (chargeEffect.scale.x < 8) {
+                    requestAnimationFrame(growAnimation);
+                } else {
+                    // Release the blast when fully charged
+                    this.releaseArcaneBlast(chargeEffect);
+                }
+            };
+            
+            // Start the growth animation
+            growAnimation();
+            
         } catch (error) {
             console.error("Error in Sorcerer arcaneBlast:", error);
         }
     }
     
-    releaseArcaneBlast() {
+    releaseArcaneBlast(chargeEffect) {
         try {
             // Get position for blast (centered on player if possible)
-            const targetPosition = this.player.getPosition().clone();
+            console.log("Sorcerer releasing arcane blast");
+            
+            // Determine blast origin position (boss position by default)
+            const blastPosition = this.mesh.position.clone();
+            
+            // Get player position for targeting
+            const playerPosition = this.player.getPosition();
+            const playerDistance = new THREE.Vector3().subVectors(playerPosition, blastPosition).length();
+            
+            // If player is far away, target them directly, otherwise create blast at player position
+            const targetPosition = playerDistance > 15 ? playerPosition.clone() : playerPosition.clone();
             
             // Create blast effect
-            const blastGeometry = new THREE.SphereGeometry(0.5, 32, 32);
-            const blastMaterial = new THREE.MeshBasicMaterial({ 
+            const radius = 0.2; // Start small
+            const maxRadius = 15; // Increase max radius for a bigger blast
+            const growthRate = 0.4; // How fast it grows
+            
+            // Track whether this blast has already hit the player
+            let hasHitPlayer = false;
+            
+            // Create blast mesh
+            const blastGeometry = new THREE.SphereGeometry(radius, 32, 32);
+            const blastMaterial = new THREE.MeshBasicMaterial({
                 color: 0x00ccff,
                 transparent: true,
-                opacity: 0.8
+                opacity: 0.7
             });
             
             const blast = new THREE.Mesh(blastGeometry, blastMaterial);
             blast.position.copy(targetPosition);
-            blast.position.y = 0.5;
+            blast.position.y = 0.1; // Just above ground
             this.scene.add(blast);
             
-            // Add light
-            const light = new THREE.PointLight(0x00ccff, 2, 10);
-            light.position.copy(targetPosition);
-            light.position.y = 1;
-            this.scene.add(light);
+            // Create blast light
+            const blastLight = new THREE.PointLight(0x00ccff, 3, maxRadius * 1.5);
+            blastLight.position.copy(targetPosition);
+            blastLight.position.y = 1;
+            this.scene.add(blastLight);
             
-            // Animation
-            const duration = 1000;
-            const maxRadius = 5 + (this.currentPhase * 1.5); // Larger with higher phase
-            const startTime = Date.now();
+            // Clean up the charge effect
+            if (chargeEffect) {
+                if (chargeEffect.parent) chargeEffect.parent.remove(chargeEffect);
+                if (chargeEffect.geometry) chargeEffect.geometry.dispose();
+                if (chargeEffect.material) chargeEffect.material.dispose();
+            }
             
+            // Animate the blast
             const animate = () => {
-                const elapsed = Date.now() - startTime;
-                const progress = Math.min(elapsed / duration, 1.0);
+                if (!this.isAlive) {
+                    // Clean up if boss dies during animation
+                    this.scene.remove(blast);
+                    this.scene.remove(blastLight);
+                    if (blast.geometry) blast.geometry.dispose();
+                    if (blast.material) blast.material.dispose();
+                    return;
+                }
                 
-                // Expand blast
-                const size = maxRadius * progress;
-                blast.scale.set(size, size, size);
+                // Grow the blast
+                blast.scale.x += growthRate;
+                blast.scale.y += growthRate;
+                blast.scale.z += growthRate;
                 
-                // Fade opacity
-                blastMaterial.opacity = 0.8 * (1 - progress);
+                // Adjust opacity based on size
+                blastMaterial.opacity = Math.max(0.1, 0.7 - (blast.scale.x * 0.05));
                 
-                // Update light intensity
-                light.intensity = 2 * (1 - progress);
+                // Pulse light intensity and color
+                const pulseIntensity = 1.5 + Math.sin(Date.now() * 0.01) * 0.5;
+                blastLight.intensity = pulseIntensity;
                 
-                // Deal damage to player if in blast radius (only once)
-                if (progress > 0.1 && progress < 0.2) {
-                    const playerPos = this.player.getPosition();
-                    const distanceToPlayer = targetPosition.distanceTo(playerPos);
+                // Calculate current blast radius
+                const currentRadius = radius * blast.scale.x;
+                
+                // Check for player hit - but only once per blast
+                if (!hasHitPlayer && this.player) {
+                    // Get distance from player to blast center
+                    const distToPlayer = playerPosition.distanceTo(blast.position);
                     
-                    if (distanceToPlayer < maxRadius * 0.2) {
-                        // Direct hit
-                        const damage = this.damage * 1.5;
-                        console.log(`Arcane Blast direct hit on player: ${damage} damage`);
+                    // If player is within blast radius, apply damage
+                    if (distToPlayer <= currentRadius) {
+                        // Calculate damage reduction based on distance from center
+                        // Closer to center = more damage (up to 150% base damage at center)
+                        const distanceRatio = distToPlayer / currentRadius;
+                        const damageMultiplier = 1.5 - (distanceRatio * 0.8); // 1.5 at center, 0.7 at edge
+                        const damage = this.damage * damageMultiplier;
+                        
+                        // Apply damage to player
                         this.player.takeDamage(damage);
-                    } else if (distanceToPlayer < maxRadius) {
-                        // Partial hit, damage falls off with distance
-                        const falloff = 1 - (distanceToPlayer / maxRadius);
-                        const damage = this.damage * falloff;
-                        console.log(`Arcane Blast partial hit on player: ${damage} damage`);
-                        this.player.takeDamage(damage);
+                        
+                        // Log the hit
+                        console.log(`Arcane blast hit player for ${damage.toFixed(1)} damage (${(damageMultiplier * 100).toFixed(0)}% power)`);
+                        
+                        // Mark as hit so we don't hit again with this blast
+                        hasHitPlayer = true;
+                        
+                        // Visual feedback of hit (if player has a model)
+                        if (this.player.body) {
+                            // Try to flash the player's body
+                            const originalColor = this.player.body.material.color.clone();
+                            this.player.body.material.color.setHex(0x00ccff);
+                            setTimeout(() => {
+                                if (this.player.body && this.player.body.material) {
+                                    this.player.body.material.color.copy(originalColor);
+                                }
+                            }, 150);
+                        }
                     }
                 }
                 
-                // Continue animation
-                if (progress < 1.0) {
+                // Continue animation until max size is reached
+                if (currentRadius < maxRadius) {
                     requestAnimationFrame(animate);
                 } else {
-                    // Clean up
-                    this.scene.remove(blast);
-                    this.scene.remove(light);
-                    blastMaterial.dispose();
-                    blastGeometry.dispose();
+                    // Clean up when animation completes
+                    const fadeOut = () => {
+                        blastMaterial.opacity -= 0.05;
+                        blastLight.intensity -= 0.2;
+                        
+                        if (blastMaterial.opacity > 0 && blastLight.intensity > 0) {
+                            requestAnimationFrame(fadeOut);
+                        } else {
+                            this.scene.remove(blast);
+                            this.scene.remove(blastLight);
+                            if (blast.geometry) blast.geometry.dispose();
+                            if (blast.material) blast.material.dispose();
+                        }
+                    };
+                    
+                    fadeOut();
                 }
             };
             
@@ -584,55 +988,62 @@ export class SorcererBoss extends BaseEnemy {
     }
     
     teleport() {
-        try {
-            console.log("Sorcerer teleporting");
-            
-            // Save current position
-            const oldPosition = this.mesh.position.clone();
-            
-            // Create disappear effect
-            this.createTeleportEffect(oldPosition, 0x9900ff);
-            
-            // Calculate new position
-            const playerPos = this.player.getPosition();
-            const angle = Math.random() * Math.PI * 2;
-            const distance = this.preferredDistance;
-            
-            const newPosition = new THREE.Vector3(
-                playerPos.x + Math.cos(angle) * distance,
-                this.mesh.position.y,
-                playerPos.z + Math.sin(angle) * distance
-            );
-            
-            // Ensure within arena bounds
-            const arenaSize = 28;
-            newPosition.x = Math.max(-arenaSize, Math.min(arenaSize, newPosition.x));
-            newPosition.z = Math.max(-arenaSize, Math.min(arenaSize, newPosition.z));
-            
-            // Hide mesh during teleport
-            this.mesh.visible = false;
-            
-            // Move after short delay
-            setTimeout(() => {
-                if (!this.isAlive) return;
-                
-                // Update position
-                this.mesh.position.copy(newPosition);
-                
-                // Show mesh
-                this.mesh.visible = true;
-                
-                // Create reappear effect
-                this.createTeleportEffect(newPosition, 0x00ccff);
-                
-                // Face player
-                const direction = new THREE.Vector3();
-                direction.subVectors(playerPos, newPosition);
-                this.faceDirection(direction);
-            }, 500);
-        } catch (error) {
-            console.error("Error in Sorcerer teleport:", error);
+        // Store current position for effect
+        const oldPosition = this.mesh.position.clone();
+        
+        // Determine new position (away from player)
+        const playerPosition = this.player.getPosition();
+        const direction = new THREE.Vector3();
+        direction.subVectors(oldPosition, playerPosition);
+        direction.y = 0;
+        direction.normalize();
+        
+        // Move 2x preferred distance away
+        const distance = this.preferredDistance * 2;
+        const newPosition = new THREE.Vector3();
+        newPosition.addVectors(playerPosition, direction.multiplyScalar(distance));
+        
+        // Add some randomness to position
+        newPosition.x += (Math.random() * 10) - 5;
+        newPosition.z += (Math.random() * 10) - 5;
+        
+        // Play teleport animation if available
+        if (this.mixer && this.animationActions['Run']) {
+            this.stopAnimation();
         }
+        
+        // Create disappear effect at old position
+        this.createTeleportEffect(oldPosition, 0x9900ff);
+        
+        // Make boss temporarily invisible during teleport
+        if (this.model) {
+            this.model.visible = false;
+        } else {
+            this.mesh.visible = false;
+        }
+        
+        // Actually teleport after a short delay
+        setTimeout(() => {
+            if (!this.isAlive) return;
+            
+            // Update position
+            this.mesh.position.copy(newPosition);
+            
+            // Create appear effect at new position
+            this.createTeleportEffect(newPosition, 0x00ccff);
+            
+            // Make visible again
+            if (this.model) {
+                this.model.visible = true;
+            } else {
+                this.mesh.visible = true;
+            }
+            
+            // Resume animation
+            if (this.mixer && this.animationActions['Run']) {
+                this.playAnimation('Run');
+            }
+        }, 500);
     }
     
     playEntranceAnimation() {
@@ -658,7 +1069,12 @@ export class SorcererBoss extends BaseEnemy {
             const circle = new THREE.Mesh(circleGeometry, circleMaterial);
             circle.position.copy(position);
             circle.rotation.x = -Math.PI / 2; // Lay flat
-            this.scene.add(circle);
+            
+            // Create a effects container for entrance elements
+            const effectsContainer = new THREE.Group();
+            effectsContainer.name = "entranceEffects";
+            effectsContainer.add(circle);
+            this.scene.add(effectsContainer);
             
             // Create vertical beam of light
             const beamGeometry = new THREE.CylinderGeometry(0.1, 0.1, 10, 16);
@@ -671,7 +1087,7 @@ export class SorcererBoss extends BaseEnemy {
             const beam = new THREE.Mesh(beamGeometry, beamMaterial);
             beam.position.copy(position);
             beam.position.y = 5; // Beam height
-            this.scene.add(beam);
+            effectsContainer.add(beam);
             
             // Animate circle and beam
             let startTime = Date.now();
@@ -718,9 +1134,10 @@ export class SorcererBoss extends BaseEnemy {
                                 // End of animation
                                 this.mesh.position.y = originalY;
                                 
-                                // Remove circle and beam
-                                this.scene.remove(circle);
-                                this.scene.remove(beam);
+                                // Remove entrance effects container
+                                this.scene.remove(effectsContainer);
+                                
+                                // Clean up geometries and materials
                                 circleGeometry.dispose();
                                 circleMaterial.dispose();
                                 beamGeometry.dispose();
@@ -768,6 +1185,10 @@ export class SorcererBoss extends BaseEnemy {
     
     createTeleportEffect(position, color) {
         try {
+            // Create a container for teleport effects
+            const teleportEffects = new THREE.Group();
+            teleportEffects.name = "teleportEffects";
+            
             // Create vertical beam
             const beamGeometry = new THREE.CylinderGeometry(0.5, 0.5, 6, 16);
             const beamMaterial = new THREE.MeshBasicMaterial({ 
@@ -779,7 +1200,7 @@ export class SorcererBoss extends BaseEnemy {
             const beam = new THREE.Mesh(beamGeometry, beamMaterial);
             beam.position.copy(position);
             beam.position.y = 3; // Half height
-            this.scene.add(beam);
+            teleportEffects.add(beam);
             
             // Create circle on ground
             const circleGeometry = new THREE.CircleGeometry(1, 32);
@@ -794,13 +1215,16 @@ export class SorcererBoss extends BaseEnemy {
             circle.position.copy(position);
             circle.position.y = 0.05;
             circle.rotation.x = -Math.PI / 2; // Lay flat
-            this.scene.add(circle);
+            teleportEffects.add(circle);
+            
+            // Add all teleport effects to scene
+            this.scene.add(teleportEffects);
             
             // Create particles
             const particleCount = 30;
             const particleGeometry = new THREE.BufferGeometry();
             const particlePositions = new Float32Array(particleCount * 3);
-            const particleVelocities = new Float32Array(particleCount * 3);
+            const particleVelocities = [];
             
             for (let i = 0; i < particleCount; i++) {
                 const i3 = i * 3;
@@ -812,9 +1236,11 @@ export class SorcererBoss extends BaseEnemy {
                 // Random velocity
                 const angle = Math.random() * Math.PI * 2;
                 const speed = 0.01 + Math.random() * 0.03;
-                particleVelocities[i3] = Math.cos(angle) * speed;
-                particleVelocities[i3 + 1] = (Math.random() * 0.02) - 0.01;
-                particleVelocities[i3 + 2] = Math.sin(angle) * speed;
+                particleVelocities.push({
+                    x: Math.cos(angle) * speed,
+                    y: (Math.random() * 0.02) - 0.01,
+                    z: Math.sin(angle) * speed
+                });
             }
             
             particleGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
@@ -827,7 +1253,7 @@ export class SorcererBoss extends BaseEnemy {
             });
             
             const particles = new THREE.Points(particleGeometry, particleMaterial);
-            this.scene.add(particles);
+            teleportEffects.add(particles);
             
             // Animation
             const duration = 500;
@@ -852,9 +1278,9 @@ export class SorcererBoss extends BaseEnemy {
                     const i3 = i * 3;
                     
                     // Update positions based on velocity
-                    positions[i3] += particleVelocities[i3];
-                    positions[i3 + 1] += particleVelocities[i3 + 1];
-                    positions[i3 + 2] += particleVelocities[i3 + 2];
+                    positions[i3] += particleVelocities[i].x;
+                    positions[i3 + 1] += particleVelocities[i].y;
+                    positions[i3 + 2] += particleVelocities[i].z;
                 }
                 
                 particleGeometry.attributes.position.needsUpdate = true;
@@ -863,10 +1289,10 @@ export class SorcererBoss extends BaseEnemy {
                 if (progress < 1.0) {
                     requestAnimationFrame(animate);
                 } else {
-                    // Clean up
-                    this.scene.remove(beam);
-                    this.scene.remove(circle);
-                    this.scene.remove(particles);
+                    // Clean up - remove container which removes all child objects
+                    this.scene.remove(teleportEffects);
+                    
+                    // Dispose of resources
                     beamMaterial.dispose();
                     beamGeometry.dispose();
                     circleMaterial.dispose();
@@ -880,6 +1306,262 @@ export class SorcererBoss extends BaseEnemy {
         } catch (error) {
             console.error("Error creating teleport effect:", error);
         }
+    }
+    
+    createPhaseTransitionEffect() {
+        try {
+            // Flash the entire sorcerer body
+            this.flashColor(0x00ffff, 1000);
+            
+            // Create additional visual effects
+            const position = this.mesh.position.clone();
+            
+            // Create effect container
+            const effectsContainer = new THREE.Group();
+            effectsContainer.name = "phaseEffects";
+            
+            // Create explosion of energy
+            const particleCount = 50;
+            const particleGeometry = new THREE.BufferGeometry();
+            const particlePositions = new Float32Array(particleCount * 3);
+            const particleVelocities = [];
+            
+            for (let i = 0; i < particleCount; i++) {
+                const i3 = i * 3;
+                // Start at boss position
+                particlePositions[i3] = position.x;
+                particlePositions[i3 + 1] = position.y;
+                particlePositions[i3 + 2] = position.z;
+                
+                // Random velocity in all directions
+                const speed = 0.05 + Math.random() * 0.1;
+                const angle1 = Math.random() * Math.PI * 2;
+                const angle2 = Math.random() * Math.PI * 2;
+                
+                particleVelocities.push({
+                    x: Math.sin(angle1) * Math.cos(angle2) * speed,
+                    y: Math.sin(angle1) * Math.sin(angle2) * speed,
+                    z: Math.cos(angle1) * speed
+                });
+            }
+            
+            particleGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+            
+            // Different color based on phase
+            let phaseColor;
+            switch(this.currentPhase) {
+                case 1: phaseColor = 0x0099ff; break; // Blue
+                case 2: phaseColor = 0x9900ff; break; // Purple
+                case 3: phaseColor = 0xff00ff; break; // Magenta
+                default: phaseColor = 0x00ccff; // Cyan
+            }
+            
+            const particleMaterial = new THREE.PointsMaterial({
+                color: phaseColor,
+                size: 0.3,
+                transparent: true,
+                opacity: 0.8
+            });
+            
+            const particles = new THREE.Points(particleGeometry, particleMaterial);
+            effectsContainer.add(particles);
+            
+            // Create shockwave effect
+            const shockwaveGeometry = new THREE.RingGeometry(0.1, 0.2, 32);
+            const shockwaveMaterial = new THREE.MeshBasicMaterial({
+                color: phaseColor,
+                transparent: true,
+                opacity: 0.7,
+                side: THREE.DoubleSide
+            });
+            
+            const shockwave = new THREE.Mesh(shockwaveGeometry, shockwaveMaterial);
+            shockwave.position.copy(position);
+            shockwave.rotation.x = Math.PI / 2; // Make it horizontal
+            effectsContainer.add(shockwave);
+            
+            // Add all effects to scene
+            this.scene.add(effectsContainer);
+            
+            // Animation
+            const duration = 1500;
+            const startTime = Date.now();
+            
+            const animate = () => {
+                const elapsed = Date.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1.0);
+                
+                // Animate particles
+                const positions = particleGeometry.attributes.position.array;
+                
+                for (let i = 0; i < particleCount; i++) {
+                    const i3 = i * 3;
+                    
+                    // Update positions based on velocity
+                    positions[i3] += particleVelocities[i].x;
+                    positions[i3 + 1] += particleVelocities[i].y;
+                    positions[i3 + 2] += particleVelocities[i].z;
+                }
+                
+                particleGeometry.attributes.position.needsUpdate = true;
+                
+                // Fade particles
+                particleMaterial.opacity = 0.8 * (1 - progress);
+                
+                // Expand and fade shockwave
+                const shockwaveSize = 0.2 + progress * 10;
+                shockwave.scale.set(shockwaveSize, shockwaveSize, shockwaveSize);
+                shockwaveMaterial.opacity = 0.7 * (1 - progress);
+                
+                // Continue animation
+                if (progress < 1.0) {
+                    requestAnimationFrame(animate);
+                } else {
+                    // Clean up - remove container which removes all child objects
+                    this.scene.remove(effectsContainer);
+                    
+                    // Dispose of resources
+                    particleGeometry.dispose();
+                    particleMaterial.dispose();
+                    shockwaveGeometry.dispose();
+                    shockwaveMaterial.dispose();
+                }
+            };
+            
+            animate();
+        } catch (error) {
+            console.error("Error in Sorcerer phase transition effect:", error);
+        }
+    }
+
+    // Add removeFromScene method to override BaseEnemy implementation
+    removeFromScene() {
+        if (this.mesh) {
+            // Stop all animations first
+            if (this.mixer) {
+                this.mixer.stopAllAction();
+                this.currentAnimation = null;
+            }
+            
+            // Fade out the model
+            const fadeOut = () => {
+                if (this.model) {
+                    // Make all materials in the model transparent
+                    this.model.traverse((node) => {
+                        if (node.isMesh && node.material) {
+                            node.material.transparent = true;
+                            node.material.opacity -= 0.05;
+                        }
+                    });
+                    
+                    // Check opacity of materials to determine if fading is complete
+                    let shouldContinue = false;
+                    this.model.traverse((node) => {
+                        if (node.isMesh && node.material && node.material.opacity > 0) {
+                            shouldContinue = true;
+                        }
+                    });
+                    
+                    if (shouldContinue) {
+                        requestAnimationFrame(fadeOut);
+                    } else {
+                        this.cleanupResources();
+                    }
+                } else {
+                    // Traditional visuals fade
+                    if (this.hood && this.hood.material) {
+                        this.hood.material.transparent = true;
+                        this.hood.material.opacity -= 0.05;
+                    }
+                    
+                    if (this.staff && this.staff.material) {
+                        this.staff.material.transparent = true;
+                        this.staff.material.opacity -= 0.05;
+                    }
+                    
+                    // Check if fade is complete
+                    if ((this.hood && this.hood.material && this.hood.material.opacity > 0) ||
+                        (this.staff && this.staff.material && this.staff.material.opacity > 0)) {
+                        requestAnimationFrame(fadeOut);
+                    } else {
+                        this.cleanupResources();
+                    }
+                }
+            };
+            
+            // Start fading out
+            fadeOut();
+        }
+    }
+    
+    cleanupResources() {
+        // Final cleanup of all resources
+        if (this.mixer) {
+            this.mixer.stopAllAction();
+            this.mixer.uncacheRoot(this.model);
+        }
+        
+        // Remove from scene
+        this.scene.remove(this.mesh);
+        
+        // Clean up model resources
+        if (this.model) {
+            this.model.traverse((node) => {
+                if (node.isMesh) {
+                    if (node.geometry) node.geometry.dispose();
+                    if (node.material) {
+                        if (Array.isArray(node.material)) {
+                            node.material.forEach(material => material.dispose());
+                        } else {
+                            node.material.dispose();
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Clean up traditional visuals
+        if (this.hood) {
+            if (this.hood.geometry) this.hood.geometry.dispose();
+            if (this.hood.material) this.hood.material.dispose();
+        }
+        
+        if (this.staff) {
+            if (this.staff.geometry) this.staff.geometry.dispose();
+            if (this.staff.material) this.staff.material.dispose();
+        }
+        
+        if (this.orb) {
+            if (this.orb.geometry) this.orb.geometry.dispose();
+            if (this.orb.material) this.orb.material.dispose();
+        }
+        
+        // Clean up particles
+        if (this.particles) {
+            for (const particle of this.particles) {
+                if (particle.geometry) particle.geometry.dispose();
+                if (particle.material) particle.material.dispose();
+            }
+            this.particles = [];
+        }
+        
+        // Clean up projectiles
+        if (this.projectiles) {
+            for (const projectile of this.projectiles) {
+                if (projectile.deactivate) {
+                    projectile.deactivate();
+                }
+            }
+            this.projectiles = [];
+        }
+        
+        // Clear references
+        this.model = null;
+        this.mesh = null;
+        this.hood = null;
+        this.staff = null;
+        this.orb = null;
+        this._originalMaterials = null;
     }
     
     get collisionRadius() {
@@ -933,157 +1615,5 @@ export class SorcererBoss extends BaseEnemy {
         } catch (error) {
             console.error("Error in Sorcerer enterNewPhase:", error);
         }
-    }
-    
-    createPhaseTransitionEffect() {
-        try {
-            // Flash the entire sorcerer body
-            this.flashColor(0x00ffff, 1000);
-            
-            // Create additional visual effects
-            const position = this.mesh.position.clone();
-            
-            // Create explosion of energy
-            const particleCount = 50;
-            const particleGeometry = new THREE.BufferGeometry();
-            const particlePositions = new Float32Array(particleCount * 3);
-            const particleVelocities = [];
-            
-            for (let i = 0; i < particleCount; i++) {
-                const i3 = i * 3;
-                // Start at boss position
-                particlePositions[i3] = position.x;
-                particlePositions[i3 + 1] = position.y;
-                particlePositions[i3 + 2] = position.z;
-                
-                // Random velocity in all directions
-                const speed = 0.05 + Math.random() * 0.1;
-                const angle1 = Math.random() * Math.PI * 2;
-                const angle2 = Math.random() * Math.PI * 2;
-                
-                particleVelocities.push({
-                    x: Math.sin(angle1) * Math.cos(angle2) * speed,
-                    y: Math.sin(angle1) * Math.sin(angle2) * speed,
-                    z: Math.cos(angle1) * speed
-                });
-            }
-            
-            particleGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
-            
-            // Different color based on phase
-            let phaseColor;
-            switch(this.currentPhase) {
-                case 1: phaseColor = 0x0099ff; break; // Blue
-                case 2: phaseColor = 0x9900ff; break; // Purple
-                case 3: phaseColor = 0xff00ff; break; // Magenta
-                default: phaseColor = 0x00ccff; // Cyan
-            }
-            
-            const particleMaterial = new THREE.PointsMaterial({
-                color: phaseColor,
-                size: 0.3,
-                transparent: true,
-                opacity: 0.8
-            });
-            
-            const particles = new THREE.Points(particleGeometry, particleMaterial);
-            this.scene.add(particles);
-            
-            // Create shockwave effect
-            const shockwaveGeometry = new THREE.RingGeometry(0.1, 0.2, 32);
-            const shockwaveMaterial = new THREE.MeshBasicMaterial({
-                color: phaseColor,
-                transparent: true,
-                opacity: 0.7,
-                side: THREE.DoubleSide
-            });
-            
-            const shockwave = new THREE.Mesh(shockwaveGeometry, shockwaveMaterial);
-            shockwave.position.copy(position);
-            shockwave.rotation.x = Math.PI / 2; // Make it horizontal
-            this.scene.add(shockwave);
-            
-            // Animation
-            const duration = 1500;
-            const startTime = Date.now();
-            
-            const animate = () => {
-                const elapsed = Date.now() - startTime;
-                const progress = Math.min(elapsed / duration, 1.0);
-                
-                // Animate particles
-                const positions = particleGeometry.attributes.position.array;
-                
-                for (let i = 0; i < particleCount; i++) {
-                    const i3 = i * 3;
-                    
-                    // Update positions based on velocity
-                    positions[i3] += particleVelocities[i].x;
-                    positions[i3 + 1] += particleVelocities[i].y;
-                    positions[i3 + 2] += particleVelocities[i].z;
-                }
-                
-                particleGeometry.attributes.position.needsUpdate = true;
-                
-                // Fade particles
-                particleMaterial.opacity = 0.8 * (1 - progress);
-                
-                // Expand and fade shockwave
-                const shockwaveSize = 0.2 + progress * 10;
-                shockwave.scale.set(shockwaveSize, shockwaveSize, shockwaveSize);
-                shockwaveMaterial.opacity = 0.7 * (1 - progress);
-                
-                // Continue animation
-                if (progress < 1.0) {
-                    requestAnimationFrame(animate);
-                } else {
-                    // Clean up
-                    this.scene.remove(particles);
-                    this.scene.remove(shockwave);
-                    particleGeometry.dispose();
-                    particleMaterial.dispose();
-                    shockwaveGeometry.dispose();
-                    shockwaveMaterial.dispose();
-                }
-            };
-            
-            animate();
-        } catch (error) {
-            console.error("Error in Sorcerer phase transition effect:", error);
-        }
-    }
-
-    // Add removeFromScene method to override BaseEnemy implementation
-    removeFromScene() {
-        console.log("Sorcerer Boss removeFromScene called - ensuring complete cleanup");
-        // For bosses, we need to make sure the mesh is completely removed and not pooled
-        if (this.mesh) {
-            // Remove from scene and dispose resources if not already done by die()
-            if (this.mesh.parent) {
-                this.scene.remove(this.mesh);
-            }
-            
-            // Dispose of main mesh resources if not already done
-            if (this.mesh.geometry) this.mesh.geometry.dispose();
-            if (this.mesh.material) {
-                if (Array.isArray(this.mesh.material)) {
-                    this.mesh.material.forEach(m => m.dispose());
-                } else {
-                    this.mesh.material.dispose();
-                }
-            }
-            
-            // Clean up special effects objects
-            if (this.orb) {
-                this.scene.remove(this.orb);
-                if (this.orb.geometry) this.orb.geometry.dispose();
-                if (this.orb.material) this.orb.material.dispose();
-                this.orb = null;
-            }
-            
-            // Clear the mesh reference
-            this.mesh = null;
-        }
-        // Do NOT call enemyPool.release() here, as bosses should not be pooled
     }
 } 

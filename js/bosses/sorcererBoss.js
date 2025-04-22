@@ -190,8 +190,8 @@ export class SorcererBoss extends BaseEnemy {
                             this._originalMaterials.set(node, node.material.color.clone());
                             
                             // Add emissive glow for boss
-                            node.material.emissive = new THREE.Color(this.defaultColor);
-                            node.material.emissiveIntensity = 0.2 + (this.bossLevel * 0.1);
+                            // node.material.emissive = new THREE.Color(this.defaultColor);
+                            // node.material.emissiveIntensity = 0.2 + (this.bossLevel * 0.1);
                         }
                     });
                     

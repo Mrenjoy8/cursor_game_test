@@ -65,8 +65,37 @@ export class HunterBoss extends BaseEnemy {
         this.playEntranceAnimation();
     }
     
+    // Remove any existing health bar
+    removeHealthBar() {
+        if (this.healthBarBg) {
+            // Remove from parent
+            if (this.healthBarBg.parent) {
+                this.healthBarBg.parent.remove(this.healthBarBg);
+            }
+            
+            // Dispose of geometries and materials
+            this.healthBarBg.traverse((child) => {
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) {
+                    if (Array.isArray(child.material)) {
+                        child.material.forEach(mat => mat.dispose());
+                    } else {
+                        child.material.dispose();
+                    }
+                }
+            });
+            
+            // Clear references
+            this.healthBarBg = null;
+            this.healthBarFg = null;
+        }
+    }
+    
     createEnemyMesh(position) {
         try {
+            // Remove any existing health bar before creating a new one
+            this.removeHealthBar();
+            
             // Create a sleek, agile hunter mesh - this will be a placeholder
             // until the 3D model loads
             
@@ -777,55 +806,74 @@ export class HunterBoss extends BaseEnemy {
         try {
             console.log("Hunter boss dramatic entrance");
             
-            // Make boss initially invisible
-            if (this.mesh) this.mesh.visible = false;
+            // Make boss initially invisible but keep health bar visible
+            if (this.mesh) {
+                // Store reference to the health bar so it's not affected by mesh visibility
+                const healthBar = this.healthBarBg;
+                if (healthBar) {
+                    // Temporarily detach health bar from mesh to keep it visible
+                    if (healthBar.parent) {
+                        healthBar.parent.remove(healthBar);
+                    }
+                    this.scene.add(healthBar);
+                }
+                
+                // Make mesh invisible but preserve health bar
+                this.mesh.visible = false;
+                
+                // Wait for smoke to appear then show boss
+                setTimeout(() => {
+                    if (!this.isAlive) return;
+                    
+                    // Show boss
+                    if (this.mesh) this.mesh.visible = true;
+                    
+                    // Re-attach health bar to mesh if it was detached
+                    if (healthBar) {
+                        this.scene.remove(healthBar);
+                        this.mesh.add(healthBar);
+                    }
+                    
+                    // Add visual flash
+                    this.flashColor(0x00ffaa, 500);
+                    
+                    // Leap upward animation
+                    const jumpHeight = 3;
+                    const jumpDuration = 500;
+                    const startY = this.mesh.position.y;
+                    const startTime = Date.now();
+                    
+                    const jumpAnimation = () => {
+                        const elapsed = Date.now() - startTime;
+                        const progress = Math.min(elapsed / jumpDuration, 1.0);
+                        
+                        // Parabolic jump animation (up and down)
+                        const heightFactor = Math.sin(progress * Math.PI);
+                        
+                        if (this.mesh) {
+                            this.mesh.position.y = startY + (jumpHeight * heightFactor);
+                        }
+                        
+                        if (progress < 1.0) {
+                            requestAnimationFrame(jumpAnimation);
+                        } else {
+                            // End of animation
+                            if (this.mesh) this.mesh.position.y = startY;
+                            
+                            // Immediately perform a special attack to announce presence
+                            setTimeout(() => {
+                                if (this.isAlive) this.throwingKnives();
+                            }, 500);
+                        }
+                    };
+                    
+                    jumpAnimation();
+                }, 500);
+            }
             
             // Create smoke cloud at spawn location
             const position = this.mesh.position.clone();
             this.createSmokeEffect();
-            
-            // Wait for smoke to appear then show boss
-            setTimeout(() => {
-                if (!this.isAlive) return;
-                
-                // Show boss
-                if (this.mesh) this.mesh.visible = true;
-                
-                // Add visual flash
-                this.flashColor(0x00ffaa, 500);
-                
-                // Leap upward animation
-                const jumpHeight = 3;
-                const jumpDuration = 500;
-                const startY = this.mesh.position.y;
-                const startTime = Date.now();
-                
-                const jumpAnimation = () => {
-                    const elapsed = Date.now() - startTime;
-                    const progress = Math.min(elapsed / jumpDuration, 1.0);
-                    
-                    // Parabolic jump animation (up and down)
-                    const heightFactor = Math.sin(progress * Math.PI);
-                    
-                    if (this.mesh) {
-                        this.mesh.position.y = startY + (jumpHeight * heightFactor);
-                    }
-                    
-                    if (progress < 1.0) {
-                        requestAnimationFrame(jumpAnimation);
-                    } else {
-                        // End of animation
-                        if (this.mesh) this.mesh.position.y = startY;
-                        
-                        // Immediately perform a special attack to announce presence
-                        setTimeout(() => {
-                            if (this.isAlive) this.throwingKnives();
-                        }, 500);
-                    }
-                };
-                
-                jumpAnimation();
-            }, 500);
         } catch (error) {
             console.error("Error in Hunter entrance animation:", error);
         }
@@ -1578,29 +1626,8 @@ export class HunterBoss extends BaseEnemy {
                 this.mixer = null;
             }
             
-            // Clean up health bar
-            if (this.healthBarBg) {
-                if (this.healthBarBg.parent) {
-                    this.healthBarBg.parent.remove(this.healthBarBg);
-                }
-                if (this.healthBarBg.geometry) {
-                    this.healthBarBg.geometry.dispose();
-                }
-                if (this.healthBarBg.material) {
-                    this.healthBarBg.material.dispose();
-                }
-                this.healthBarBg = null;
-            }
-            
-            if (this.healthBar) {
-                if (this.healthBar.geometry) {
-                    this.healthBar.geometry.dispose();
-                }
-                if (this.healthBar.material) {
-                    this.healthBar.material.dispose();
-                }
-                this.healthBar = null;
-            }
+            // Clean up health bar - use our dedicated method
+            this.removeHealthBar();
             
             // Dispose of model resources
             if (this.model) {
@@ -1650,5 +1677,43 @@ export class HunterBoss extends BaseEnemy {
     
     get collisionRadius() {
         return this.size * 0.8; // Use hunter size for collision radius
+    }
+    
+    // Override reset method to handle health bar properly
+    reset(position, powerScaling = 1.0) {
+        // Call base class reset method
+        super.reset(position, powerScaling);
+        
+        // Ensure the correct health calculations based on boss level
+        this.maxHealth = 120 * this.bossLevel;
+        this.health = this.maxHealth;
+        this.damage = 12 + (5 * this.bossLevel);
+        
+        // Ensure the health bar is correctly positioned with the 3D model
+        if (this.model && this.healthBarBg) {
+            this.healthBarBg.position.y = 4.0 + (this.bossLevel * 0.5);
+        }
+        
+        // Reset all boss-specific properties
+        this.isDashing = false;
+        this.dashTarget = null;
+        this.dashHitPlayers.clear();
+        this.lastAttackTime = 0;
+        this.lastSpecialAttackTime = 0;
+        this.lastDashTime = 0;
+        this.currentPhase = 0;
+        
+        // Clear projectiles
+        this.projectiles.forEach(projectile => {
+            if (projectile && projectile.deactivate) {
+                projectile.deactivate();
+            }
+        });
+        this.projectiles = [];
+        
+        // Add dramatic entrance effect
+        this.playEntranceAnimation();
+        
+        return this;
     }
 } 

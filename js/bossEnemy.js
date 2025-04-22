@@ -806,12 +806,12 @@ export class BossEnemy extends BaseEnemy {
     
     updateProjectiles(deltaTime) {
         try {
+            // Only check for collisions with player
+            // Movement and visual updates are handled by ProjectileManager
             for (let i = this.projectiles.length - 1; i >= 0; i--) {
                 const projectile = this.projectiles[i];
                 
                 if (projectile.isActive) {
-                    projectile.update(deltaTime);
-                    
                     // Check collision with player using the projectile's own method
                     if (projectile.checkPlayerCollision && this.player) {
                         projectile.checkPlayerCollision(this.player);

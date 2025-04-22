@@ -8,6 +8,7 @@ import { UI } from './ui.js';
 import { WaveManager } from './waveManager.js';
 import { SkillSystem } from './skillSystem.js';
 import { MenuUI } from './menuUI.js';
+import { Projectile } from './projectile.js';
 
 // Game class to handle core functionality
 class Game {
@@ -477,6 +478,9 @@ class Game {
             // Update player - pass enemies for auto-targeting
             this.player.update(cappedDeltaTime, this.camera, this.waveManager.enemies);
             
+            // Update all projectiles centrally (optimization)
+            Projectile.updateAll(cappedDeltaTime);
+            
             // Update camera
             this.cameraController.update();
         } else {
@@ -560,6 +564,9 @@ class Game {
                 enemy.projectiles = [];
             }
         }
+        
+        // Clean up all projectile resources
+        Projectile.disposeAll();
     }
 }
 

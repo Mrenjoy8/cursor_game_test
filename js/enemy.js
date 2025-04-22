@@ -1395,12 +1395,21 @@ export class RangedEnemy extends BaseEnemy {
     }
     
     updateProjectiles(deltaTime) {
-        // Update existing projectiles
+        // Check if player exists and is valid
+        if (!this.player) {
+            return;
+        }
+        
+        // Check existing projectiles for collisions with player only
+        // The movement and visual effects are now handled by ProjectileManager
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
             const projectile = this.projectiles[i];
             
-            // Update projectile
-            projectile.update(deltaTime);
+            // Skip checking already inactive projectiles
+            if (!projectile.isActive) {
+                this.projectiles.splice(i, 1);
+                continue;
+            }
             
             // Check for collisions with player
             if (this.player) {

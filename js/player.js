@@ -286,29 +286,30 @@ export class Player {
             this.mesh.position.z = arenaSize - playerRadius;
         }
         
-        // Update projectiles
-        this.updateProjectiles(deltaTime, enemies);
+        // Check projectile collisions with enemies (but don't update projectiles)
+        this.checkProjectileCollisions(enemies);
         
         // Auto attack if enemies in range
         this.autoAttack(enemies);
     }
     
-    updateProjectiles(deltaTime, enemies) {
-        // Update existing projectiles
+    checkProjectileCollisions(enemies) {
+        // Check for collisions between player projectiles and enemies
+        // We no longer need to call update() on each projectile since that's handled centrally
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
             const projectile = this.projectiles[i];
             
-            // Update projectile
-            projectile.update(deltaTime);
+            // Skip inactive projectiles
+            if (!projectile.isActive) {
+                this.projectiles.splice(i, 1);
+                continue;
+            }
             
             // Check for collisions with enemies
             for (const enemy of enemies) {
+                // We'll rely on the ProjectileManager's collision check
+                // which is called inside the Projectile.checkCollision method
                 projectile.checkCollision(enemy);
-            }
-            
-            // Remove inactive projectiles
-            if (!projectile.isActive) {
-                this.projectiles.splice(i, 1);
             }
         }
     }

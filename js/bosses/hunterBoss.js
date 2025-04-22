@@ -530,12 +530,11 @@ export class HunterBoss extends BaseEnemy {
     
     updateProjectiles(deltaTime) {
         try {
+            // Only check for collisions with player - movement and visuals handled by ProjectileManager
             for (let i = this.projectiles.length - 1; i >= 0; i--) {
                 const projectile = this.projectiles[i];
                 
                 if (projectile.isActive) {
-                    projectile.update(deltaTime);
-                    
                     // Check collision with player
                     projectile.checkPlayerCollision(this.player);
                 } else {

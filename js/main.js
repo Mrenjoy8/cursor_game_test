@@ -170,9 +170,26 @@ class Game {
     }
     
     setupGameScene() {
-        // Set up scene with black background
+        // Set up scene with background image or fallback to black
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0x000000);
+        
+        // Try to load the background texture
+        const textureLoader = new THREE.TextureLoader();
+        
+        textureLoader.load(
+            '/assets/bg_test1.jpg',
+            (texture) => {
+                // Success - set the background to the loaded texture
+                console.log('Background image loaded successfully');
+                this.scene.background = texture;
+            },
+            undefined, // onProgress callback not needed
+            (error) => {
+                // Error - fallback to black background
+                console.warn('Failed to load background image:', error);
+                this.scene.background = new THREE.Color(0x000000);
+            }
+        );
         
         // Set up lighting
         this.setupLights();

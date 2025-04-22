@@ -177,7 +177,7 @@ class Game {
         const textureLoader = new THREE.TextureLoader();
         
         textureLoader.load(
-            '/assets/bg_test1.jpg',
+            '/assets/bg_test1.png',
             (texture) => {
                 // Success - set the background to the loaded texture
                 console.log('Background image loaded successfully');

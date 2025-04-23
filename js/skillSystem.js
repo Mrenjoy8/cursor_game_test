@@ -329,16 +329,29 @@ export class SkillSystem {
         // Hide skill selector
         this.container.style.display = 'none';
         
+        console.log(`Skill selected: ${skill.name} (Level ${skill.level})`);
+        
+        // Create custom event with some detail data about the skill
+        const skillEvent = new CustomEvent('skillSelected', {
+            detail: {
+                skillId: skill.id,
+                skillName: skill.name,
+                skillLevel: skill.level
+            },
+            bubbles: true
+        });
+        
         // Dispatch custom event to notify other systems that a skill was selected
-        document.dispatchEvent(new Event('skillSelected'));
+        document.dispatchEvent(skillEvent);
         
         // Resume game using game's togglePause to restore enemy states
         // Add a small delay to ensure UI is fully hidden first
         setTimeout(() => {
             if (this.game.paused) {
+                console.log("Resuming game after skill selection");
                 this.game.togglePause(false); // Resume without showing/hiding overlay
             }
-        }, 50);
+        }, 100);
     }
     
     getSkillLevel(skillId) {

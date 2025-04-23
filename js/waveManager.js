@@ -805,91 +805,118 @@ export class WaveManager {
         powerUpNotification.style.textShadow = '0 0 10px rgba(228, 147, 179, 0.7)';
         notificationContainer.appendChild(powerUpNotification);
         
+        // Record whether wave completion has happened yet
+        const wasWaveActive = this.waveActive;
+        
         // Fade out and remove
         setTimeout(() => {
             notificationContainer.style.opacity = '0';
             setTimeout(() => {
-                document.body.removeChild(notificationContainer);
+                // Remove the notification
+                if (document.body.contains(notificationContainer)) {
+                    document.body.removeChild(notificationContainer);
+                }
+                
+                // Only call waveComplete if it hasn't been called yet by another process
+                // AND we were in an active wave when the reward started
+                if (wasWaveActive && this.waveActive && this.isBossWave && this.enemiesRemaining <= 0) {
+                    console.log("Boss reward notification complete - ensuring wave completion");
+                    this.waveComplete();
+                }
             }, 1000);
         }, 3000);
     }
     
     update(deltaTime) {
-        // Update enemies
-        for (let i = this.enemies.length - 1; i >= 0; i--) {
-            const enemy = this.enemies[i];
-            
-            if (enemy.isAlive) {
-                enemy.update(deltaTime, this.camera);
-            } else {
-                // Handle enemy death
-                // Check if it was a boss
-                if (this.isBossWave && enemy === this.currentBoss) {
-                    console.log("Boss died, creating death effect");
-                    
-                    // IMPORTANT: First get the position before any cleanup occurs
-                    // Get position even if the mesh is already gone
-                    const bossPosition = enemy.getPosition().clone(); // This now returns a fallback position if null
-                    console.log("Boss death position:", bossPosition);
-                    
-                    // If the boss mesh is still visible, call die() to handle animations
-                    if (enemy.mesh && enemy.mesh.visible) {
-                        console.log("Explicitly calling boss die() method");
-                        enemy.die(); // This will clean up the mesh
+        try {
+            // Update enemies
+            for (let i = this.enemies.length - 1; i >= 0; i--) {
+                const enemy = this.enemies[i];
+                
+                if (enemy.isAlive) {
+                    enemy.update(deltaTime, this.camera);
+                } else {
+                    // Handle enemy death
+                    // Check if it was a boss
+                    if (this.isBossWave && enemy === this.currentBoss) {
+                        console.log("Boss died, creating death effect");
+                        
+                        // IMPORTANT: First get the position before any cleanup occurs
+                        // Get position even if the mesh is already gone
+                        const bossPosition = enemy.getPosition().clone(); // This now returns a fallback position if null
+                        console.log("Boss death position:", bossPosition);
+                        
+                        // If the boss mesh is still visible, call die() to handle animations
+                        if (enemy.mesh && enemy.mesh.visible) {
+                            console.log("Explicitly calling boss die() method");
+                            enemy.die(); // This will clean up the mesh
+                        } else {
+                            console.log("Boss mesh already removed, skipping die() call");
+                        }
+                        
+                        // Create death effect
+                        this.createBossDeathEffect(bossPosition);
+                        
+                        // Return boss to pool instead of disposing completely
+                        bossPool.release(enemy);
+                        
+                        // Clear boss reference and update state
+                        this.currentBoss = null;
+                        this.enemies.splice(i, 1);
+                        this.enemiesRemaining--;
+                        
+                        console.log(`After boss death: enemies remaining: ${this.enemiesRemaining}, wave active: ${this.waveActive}`);
                     } else {
-                        console.log("Boss mesh already removed, skipping die() call");
+                        // Regular enemy - use object pool system
+                        // For regular enemies, this adds them back to the pool
+                        // We don't need to call enemyPool.release explicitly as removeFromScene does this
+                        enemy.removeFromScene(); 
+                        this.enemies.splice(i, 1);
+                        this.enemiesRemaining--;
                     }
                     
-                    // Create death effect
-                    this.createBossDeathEffect(bossPosition);
-                    
-                    // Return boss to pool instead of disposing completely
-                    bossPool.release(enemy);
-                    
-                    // Clear boss reference and update state
-                    this.currentBoss = null;
-                    this.enemies.splice(i, 1);
-                    this.enemiesRemaining--;
-                } else {
-                    // Regular enemy - use object pool system
-                    // For regular enemies, this adds them back to the pool
-                    // We don't need to call enemyPool.release explicitly as removeFromScene does this
-                    enemy.removeFromScene(); 
-                    this.enemies.splice(i, 1);
-                    this.enemiesRemaining--;
-                }
-                
-                // Check if wave is complete
-                if (this.enemiesRemaining <= 0 && this.waveActive) {
-                    this.waveComplete();
-                }
-            }
-        }
-        
-        // Update wave timer
-        if (this.waveTimerActive) {
-            this.waveTimer -= deltaTime;
-            
-            if (this.waveTimer <= 0) {
-                this.waveTimerActive = false;
-                this.waveTimer = 0;
-                
-                // Handle wave timeout - different behavior for boss waves
-                if (this.isBossWave && this.currentBoss) {
-                    // If boss is still alive, make it vulnerable (half health and slower)
-                    this.currentBoss.health = Math.max(this.currentBoss.health * 0.5, 1);
-                    this.currentBoss.moveSpeed *= 0.7;
-                    this.currentBoss.flashColor(0xff00ff, 1000); // Purple flash to indicate vulnerability
-                    this.showBossVulnerableNotification();
-                } else {
-                    // For normal waves, just spawn the next wave
-                    this.showTimerExpiredNotification();
-                    this.waveComplete();
+                    // Check if wave is complete
+                    if (this.enemiesRemaining <= 0 && this.waveActive) {
+                        console.log("Wave complete check in update loop - calling waveComplete()");
+                        this.waveComplete();
+                    }
                 }
             }
             
-            // Update the wave display
-            this.updateWaveDisplay();
+            // Failsafe check for boss wave with no boss but wave still active
+            // This handles edge cases where the boss might have been removed but wave completion wasn't triggered
+            if (this.isBossWave && !this.currentBoss && this.enemiesRemaining <= 0 && this.waveActive) {
+                console.log("FAILSAFE: Boss wave has no boss but is still active. Forcing wave completion.");
+                this.waveComplete();
+            }
+            
+            // Update wave timer
+            if (this.waveTimerActive) {
+                this.waveTimer -= deltaTime;
+                
+                if (this.waveTimer <= 0) {
+                    this.waveTimerActive = false;
+                    this.waveTimer = 0;
+                    
+                    // Handle wave timeout - different behavior for boss waves
+                    if (this.isBossWave && this.currentBoss) {
+                        // If boss is still alive, make it vulnerable (half health and slower)
+                        this.currentBoss.health = Math.max(this.currentBoss.health * 0.5, 1);
+                        this.currentBoss.moveSpeed *= 0.7;
+                        this.currentBoss.flashColor(0xff00ff, 1000); // Purple flash to indicate vulnerability
+                        this.showBossVulnerableNotification();
+                    } else {
+                        // For normal waves, just spawn the next wave
+                        this.showTimerExpiredNotification();
+                        this.waveComplete();
+                    }
+                }
+                
+                // Update the wave display
+                this.updateWaveDisplay();
+            }
+        } catch (error) {
+            console.error("Error in WaveManager update:", error);
         }
     }
     
@@ -897,6 +924,8 @@ export class WaveManager {
         this.waveActive = false;
         this.waveTimerActive = false;
         this.waveCountdown = this.timeBetweenWaves;
+        
+        console.log(`Wave ${this.currentWave} complete! isBossWave: ${this.isBossWave}, enemiesRemaining: ${this.enemiesRemaining}`);
         
         // Update display
         this.updateWaveDisplay();
@@ -937,25 +966,48 @@ export class WaveManager {
             }, 1500);
         }
         
+        // Clear any existing timeout to prevent multiple wave starts
+        if (this.waveTimeout) {
+            clearTimeout(this.waveTimeout);
+            this.waveTimeout = null;
+        }
+        
+        // Clear any existing event listeners for skill selection to prevent duplicates
+        document.removeEventListener('skillSelected', this.startNextWaveAfterUnpause);
+        
         // Schedule the next wave without pausing, but check if skill selection is active
         // If game is already paused (likely from level up screen), don't schedule the next wave yet
-        if (this.game && this.game.paused && this.game.skillSystem && 
-            this.game.skillSystem.container.style.display === 'block') {
+        const skillSelectionVisible = this.game && 
+            this.game.skillSystem && 
+            this.game.skillSystem.container && 
+            this.game.skillSystem.container.style.display === 'block';
+            
+        if (this.game && this.game.paused && skillSelectionVisible) {
             console.log("Wave complete during skill selection - waiting for skill choice before starting next wave");
             
-            // Create a one-time event listener for when the game is unpaused (after skill selection)
-            const startNextWaveAfterUnpause = () => {
-                if (!this.game.paused) {
-                    console.log("Game unpaused after skill selection - starting next wave");
+            // Create a one-time event listener for when skill selection completes
+            this.startNextWaveAfterUnpause = () => {
+                console.log("Skill selected - scheduling next wave start");
+                
+                // Use setTimeout to ensure this runs after other game state changes
+                setTimeout(() => {
+                    if (this.waveTimeout) {
+                        clearTimeout(this.waveTimeout);
+                    }
+                    
+                    console.log("Starting next wave after skill selection");
                     this.startNextWave();
-                    document.removeEventListener('skillSelected', startNextWaveAfterUnpause);
-                }
+                }, 100);
+                
+                // Clean up event listener
+                document.removeEventListener('skillSelected', this.startNextWaveAfterUnpause);
             };
             
             // Listen for a custom event that will be dispatched after skill selection
-            document.addEventListener('skillSelected', startNextWaveAfterUnpause);
+            document.addEventListener('skillSelected', this.startNextWaveAfterUnpause);
         } else {
             // Simply schedule the next wave 
+            console.log("Scheduling next wave start with no delay");
             this.waveTimeout = setTimeout(() => {
                 this.startNextWave();
             }, this.timeBetweenWaves);
@@ -989,138 +1041,186 @@ export class WaveManager {
     
     createBossDeathEffect(position) {
         console.log("Creating boss death effect at position:", position);
-        // Create spectacular death effect for boss
-        // Similar to spawn effect but with different colors and behavior
-        
-        // Explosion
-        const explosionGeometry = new THREE.SphereGeometry(1, 32, 32);
-        const explosionMaterial = new THREE.MeshBasicMaterial({ 
-            color: 0xffdd00,
-            transparent: true,
-            opacity: 1
-        });
-        
-        const explosion = new THREE.Mesh(explosionGeometry, explosionMaterial);
-        explosion.position.copy(position);
-        this.scene.add(explosion);
-        
-        // Shockwave ring
-        const ringGeometry = new THREE.RingGeometry(0, 2, 32);
-        const ringMaterial = new THREE.MeshBasicMaterial({ 
-            color: 0xffaa00,
-            side: THREE.DoubleSide,
-            transparent: true,
-            opacity: 0.9
-        });
-        
-        const ring = new THREE.Mesh(ringGeometry, ringMaterial);
-        ring.position.copy(position);
-        ring.position.y = 0.1; // Slightly above ground
-        ring.rotation.x = -Math.PI / 2; // Lay flat on the ground
-        this.scene.add(ring);
-        
-        // Particles
-        const particleCount = 300;
-        const particleGeometry = new THREE.BufferGeometry();
-        const particlePositions = new Float32Array(particleCount * 3);
-        const particleVelocities = new Float32Array(particleCount * 3);
-        
-        for (let i = 0; i < particleCount; i++) {
-            const i3 = i * 3;
-            // Start at boss position
-            particlePositions[i3] = position.x;
-            particlePositions[i3 + 1] = position.y;
-            particlePositions[i3 + 2] = position.z;
+        try {
+            // Create spectacular death effect for boss
+            // Similar to spawn effect but with different colors and behavior
             
-            // Random velocity (exploding outward)
-            const speed = 0.05 + Math.random() * 0.1;
-            const angle = Math.random() * Math.PI * 2;
-            const elevation = Math.random() * Math.PI - Math.PI/2;
+            // Explosion
+            const explosionGeometry = new THREE.SphereGeometry(1, 32, 32);
+            const explosionMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0xffdd00,
+                transparent: true,
+                opacity: 1
+            });
             
-            particleVelocities[i3] = Math.cos(angle) * Math.cos(elevation) * speed;
-            particleVelocities[i3 + 1] = Math.sin(elevation) * speed;
-            particleVelocities[i3 + 2] = Math.sin(angle) * Math.cos(elevation) * speed;
-        }
-        
-        particleGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
-        
-        const particleMaterial = new THREE.PointsMaterial({
-            color: 0xffcc00,
-            size: 0.4,
-            transparent: true,
-            opacity: 1,
-            sizeAttenuation: true
-        });
-        
-        const particles = new THREE.Points(particleGeometry, particleMaterial);
-        this.scene.add(particles);
-        
-        // Play explosion sound
-        this.playBossDeathSound();
-        
-        // Animation timeline
-        let startTime = Date.now();
-        const duration = 2000; // 2 seconds
-        
-        const animate = () => {
-            const elapsed = Date.now() - startTime;
-            const progress = Math.min(elapsed / duration, 1.0);
+            const explosion = new THREE.Mesh(explosionGeometry, explosionMaterial);
+            explosion.position.copy(position);
+            this.scene.add(explosion);
             
-            // Animate explosion
-            explosion.scale.setScalar(1 + progress * 6);
-            explosionMaterial.opacity = 1 * (1 - progress);
+            // Shockwave ring
+            const ringGeometry = new THREE.RingGeometry(0, 2, 32);
+            const ringMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0xffaa00,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.9
+            });
             
-            // Animate ring
-            ring.scale.setScalar(1 + progress * 10);
-            ringMaterial.opacity = 0.9 * (1 - progress);
+            const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+            ring.position.copy(position);
+            ring.position.y = 0.1; // Slightly above ground
+            ring.rotation.x = -Math.PI / 2; // Lay flat on the ground
+            this.scene.add(ring);
             
-            // Animate particles
-            const positions = particleGeometry.attributes.position.array;
+            // Particles
+            const particleCount = 300;
+            const particleGeometry = new THREE.BufferGeometry();
+            const particlePositions = new Float32Array(particleCount * 3);
+            const particleVelocities = new Float32Array(particleCount * 3);
             
             for (let i = 0; i < particleCount; i++) {
                 const i3 = i * 3;
+                // Start at boss position
+                particlePositions[i3] = position.x;
+                particlePositions[i3 + 1] = position.y;
+                particlePositions[i3 + 2] = position.z;
                 
-                // Update positions based on velocity
-                positions[i3] += particleVelocities[i3];
-                positions[i3 + 1] += particleVelocities[i3 + 1];
-                positions[i3 + 2] += particleVelocities[i3 + 2];
+                // Random velocity (exploding outward)
+                const speed = 0.05 + Math.random() * 0.1;
+                const angle = Math.random() * Math.PI * 2;
+                const elevation = Math.random() * Math.PI - Math.PI/2;
                 
-                // Add gravity effect
-                particleVelocities[i3 + 1] -= 0.001;
+                particleVelocities[i3] = Math.cos(angle) * Math.cos(elevation) * speed;
+                particleVelocities[i3 + 1] = Math.sin(elevation) * speed;
+                particleVelocities[i3 + 2] = Math.sin(angle) * Math.cos(elevation) * speed;
             }
             
-            particleGeometry.attributes.position.needsUpdate = true;
-            particleMaterial.opacity = 1 * (1 - progress);
+            particleGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
             
-            // Continue animation if not complete
-            if (progress < 1.0) {
-                requestAnimationFrame(animate);
-            } else {
-                // Clean up ALL objects to prevent memory leaks
-                console.log("Boss death animation complete - cleaning up all effect objects");
+            const particleMaterial = new THREE.PointsMaterial({
+                color: 0xffcc00,
+                size: 0.4,
+                transparent: true,
+                opacity: 1,
+                sizeAttenuation: true
+            });
+            
+            const particles = new THREE.Points(particleGeometry, particleMaterial);
+            this.scene.add(particles);
+            
+            // Play explosion sound
+            this.playBossDeathSound();
+            
+            // Animation timeline
+            let startTime = Date.now();
+            const duration = 2000; // 2 seconds
+            let animationActive = true;
+            let cleanupDone = false;
+            
+            const animate = () => {
+                if (!animationActive) return;
                 
-                // Remove objects from scene
-                this.scene.remove(explosion);
-                this.scene.remove(ring);
-                this.scene.remove(particles);
-                
-                // Dispose geometries
-                explosionGeometry.dispose();
-                ringGeometry.dispose();
-                particleGeometry.dispose();
-                
-                // Dispose materials
-                explosionMaterial.dispose();
-                ringMaterial.dispose();
-                particleMaterial.dispose();
-                
-                // Give player a reward
-                this.givePlayerBossReward();
-            }
-        };
-        
-        // Start animation
-        animate();
+                try {
+                    const elapsed = Date.now() - startTime;
+                    const progress = Math.min(elapsed / duration, 1.0);
+                    
+                    // Animate explosion
+                    explosion.scale.setScalar(1 + progress * 6);
+                    explosionMaterial.opacity = 1 * (1 - progress);
+                    
+                    // Animate ring
+                    ring.scale.setScalar(1 + progress * 10);
+                    ringMaterial.opacity = 0.9 * (1 - progress);
+                    
+                    // Animate particles
+                    const positions = particleGeometry.attributes.position.array;
+                    
+                    for (let i = 0; i < particleCount; i++) {
+                        const i3 = i * 3;
+                        
+                        // Update positions based on velocity
+                        positions[i3] += particleVelocities[i3];
+                        positions[i3 + 1] += particleVelocities[i3 + 1];
+                        positions[i3 + 2] += particleVelocities[i3 + 2];
+                        
+                        // Add gravity effect
+                        particleVelocities[i3 + 1] -= 0.001;
+                    }
+                    
+                    particleGeometry.attributes.position.needsUpdate = true;
+                    particleMaterial.opacity = 1 * (1 - progress);
+                    
+                    // Continue animation if not complete
+                    if (progress < 1.0) {
+                        requestAnimationFrame(animate);
+                    } else if (!cleanupDone) {
+                        cleanupDone = true;
+                        console.log("Boss death animation complete - cleaning up all effect objects");
+                        
+                        // Use try/catch for cleanup to avoid errors stopping the sequence
+                        try {
+                            // Remove objects from scene
+                            this.scene.remove(explosion);
+                            this.scene.remove(ring);
+                            this.scene.remove(particles);
+                            
+                            // Dispose geometries
+                            explosionGeometry.dispose();
+                            ringGeometry.dispose();
+                            particleGeometry.dispose();
+                            
+                            // Dispose materials
+                            explosionMaterial.dispose();
+                            ringMaterial.dispose();
+                            particleMaterial.dispose();
+                        } catch (cleanupError) {
+                            console.error("Error during death effect cleanup:", cleanupError);
+                        }
+                        
+                        // Use setTimeout to ensure animation is fully complete before proceeding
+                        setTimeout(() => {
+                            // Give player a reward - decouple this from animation cleanup
+                            this.givePlayerBossReward();
+                        }, 50);
+                    }
+                } catch (animationError) {
+                    console.error("Error in boss death animation:", animationError);
+                    
+                    // Attempt cleanup in case of error
+                    if (!cleanupDone) {
+                        cleanupDone = true;
+                        animationActive = false;
+                        
+                        try {
+                            // Remove objects from scene
+                            this.scene.remove(explosion);
+                            this.scene.remove(ring);
+                            this.scene.remove(particles);
+                            
+                            // Dispose geometries and materials
+                            explosionGeometry.dispose();
+                            ringGeometry.dispose();
+                            particleGeometry.dispose();
+                            explosionMaterial.dispose();
+                            ringMaterial.dispose();
+                            particleMaterial.dispose();
+                            
+                            // Still give player reward even if animation fails
+                            this.givePlayerBossReward();
+                        } catch (finalCleanupError) {
+                            console.error("Final cleanup also failed:", finalCleanupError);
+                        }
+                    }
+                }
+            };
+            
+            // Start animation
+            animate();
+        } catch (error) {
+            console.error("Error creating boss death effect:", error);
+            // Still give player reward even if effect creation fails
+            this.givePlayerBossReward();
+        }
     }
     
     playBossDeathSound() {

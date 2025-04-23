@@ -265,6 +265,9 @@ export class EnemyPreloader {
                     // Make sure model is visible to force texture loading
                     enemy.model.visible = true;
                     
+                    // Store original materials after model is loaded
+                    enemy.storeOriginalMaterials();
+                    
                     // If there's an animation mixer, play a test animation to ensure it's loaded
                     if (enemy.mixer && Object.keys(enemy.animationActions).length > 0) {
                         const firstAnimation = Object.keys(enemy.animationActions)[0];
@@ -272,6 +275,12 @@ export class EnemyPreloader {
                         // Update the mixer to force animation system to initialize
                         enemy.mixer.update(0.016);
                         enemy.stopAnimation();
+                    }
+                    
+                    // Make sure placeholder is removed
+                    if (enemy.placeholder) {
+                        enemy.mesh.remove(enemy.placeholder);
+                        enemy.placeholder = null;
                     }
                     
                     // Return enemy to pool for later use

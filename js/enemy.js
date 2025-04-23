@@ -69,23 +69,30 @@ class EnemyPool {
                 enemy.powerRing = null;
             }
             
+            // Ensure placeholder is removed if it exists
+            if (enemy.placeholder) {
+                if (enemy.mesh) {
+                    enemy.mesh.remove(enemy.placeholder);
+                }
+                // Find and remove any meshes in the placeholder
+                if (enemy.placeholder.children && enemy.placeholder.children.length > 0) {
+                    for (let i = enemy.placeholder.children.length - 1; i >= 0; i--) {
+                        const child = enemy.placeholder.children[i];
+                        if (child.geometry) child.geometry.dispose();
+                        if (child.material) child.material.dispose();
+                        enemy.placeholder.remove(child);
+                    }
+                }
+                enemy.placeholder = null;
+            }
+            
             if (enemy.mesh) {
                 enemy.mesh.visible = false;
                 
                 // Handle model differently than basic mesh
                 if (enemy.model) {
-                    // Reset opacity and visibility for next use
-                    enemy.model.traverse((node) => {
-                        if (node.isMesh && node.material) {
-                            node.material.opacity = 1;
-                            node.material.transparent = false;
-                            if (enemy._originalMaterials && enemy._originalMaterials.has(node)) {
-                                node.material.color.copy(enemy._originalMaterials.get(node));
-                            } else {
-                                node.material.color.setHex(enemy.defaultColor);
-                            }
-                        }
-                    });
+                    // Restore original materials before returning to pool
+                    enemy.restoreOriginalMaterials();
                     
                     // Ensure model position is properly reset for next use
                     if (enemy.type === EnemyType.BASIC) {
@@ -164,6 +171,12 @@ export class BaseEnemy {
         this.animationActions = {};
         this.currentAnimation = null;
         this.model = null;
+        
+        // Track placeholder to ensure proper removal
+        this.placeholder = null;
+        
+        // Store original materials for model
+        this._originalMaterials = new Map();
         
         // Create mesh if position is provided
         if (position) {
@@ -331,11 +344,11 @@ export class BaseEnemy {
                 this.mesh.material.transparent = false;
             }
             
-            // Only update position if specifically provided
+            // Update position
             if (position) {
                 this.mesh.position.copy(position);
                 
-                // Ensure the Y position is correct for this enemy type
+                // Also reset y position based on enemy type
                 switch(this.type) {
                     case EnemyType.BASIC:
                         this.mesh.position.y = 0.75; // Half height for cone
@@ -378,23 +391,9 @@ export class BaseEnemy {
             this.createEnemyMesh(position, powerScaling);
         }
         
-        // If we have a model, reset its materials
+        // If we have a model, restore original materials
         if (this.model) {
-            this.model.traverse((node) => {
-                if (node.isMesh && node.material) {
-                    // Reset material properties
-                    node.material.opacity = 1;
-                    node.material.transparent = false;
-                    
-                    // Try to restore original color
-                    if (this._originalMaterials && this._originalMaterials.has(node)) {
-                        node.material.color.copy(this._originalMaterials.get(node));
-                    } else {
-                        // Fallback to default color
-                        node.material.color.setHex(this.defaultColor);
-                    }
-                }
-            });
+            this.restoreOriginalMaterials();
         }
     }
     
@@ -731,6 +730,39 @@ export class BaseEnemy {
         }
         return this.mesh.position;
     }
+    
+    // Store original materials from the loaded model
+    storeOriginalMaterials() {
+        if (!this.model) return;
+        
+        // Clear previous materials map
+        this._originalMaterials.clear();
+        
+        // Store original materials
+        this.model.traverse((node) => {
+            if (node.isMesh && node.material) {
+                // Create a deep copy of the color
+                this._originalMaterials.set(node, node.material.color.clone());
+            }
+        });
+    }
+    
+    // Restore original materials to the model
+    restoreOriginalMaterials() {
+        if (!this.model) return;
+        
+        this.model.traverse((node) => {
+            if (node.isMesh && node.material) {
+                // Check if we have the original color stored
+                if (this._originalMaterials.has(node)) {
+                    // Restore the original color
+                    node.material.color.copy(this._originalMaterials.get(node));
+                    node.material.transparent = false;
+                    node.material.opacity = 1.0;
+                }
+            }
+        });
+    }
 }
 
 // Basic Enemy - The original enemy type (red cone)
@@ -787,6 +819,8 @@ export class BasicEnemy extends BaseEnemy {
         
         // Add placeholder to the mesh container
         this.mesh.add(placeholder);
+        // Save reference to the placeholder
+        this.placeholder = placeholder;
         
         // Add to scene
         this.scene.add(this.mesh);
@@ -796,15 +830,22 @@ export class BasicEnemy extends BaseEnemy {
         
         // Load the glTF model
         const loader = new GLTFLoader();
-        const modelURL = '/models/basicEnemy.gltf'; 
+        const modelURL = '/models/basicEnemy.gltf';
         
         loader.load(
             modelURL,
             (gltf) => {
                 console.log('Basic enemy model loaded successfully');
                 
-                // Remove placeholder
-                this.mesh.remove(placeholder);
+                // Remove placeholder - ensure it's actually removed
+                if (this.placeholder && this.mesh.children.includes(this.placeholder)) {
+                    this.mesh.remove(this.placeholder);
+                    this.placeholder = null;
+                    
+                    // Properly dispose of placeholder geometry and material
+                    if (geometry) geometry.dispose();
+                    if (material) material.dispose();
+                }
                 
                 // Add the loaded model to our mesh container
                 this.model = gltf.scene;
@@ -823,6 +864,9 @@ export class BasicEnemy extends BaseEnemy {
                         node.receiveShadow = true;
                     }
                 });
+                
+                // Store original materials before adding to scene
+                this.storeOriginalMaterials();
                 
                 // Add model to enemy mesh
                 this.mesh.add(this.model);
@@ -914,6 +958,8 @@ export class FastEnemy extends BaseEnemy {
         
         // Add placeholder to the mesh container
         this.mesh.add(placeholder);
+        // Save reference to the placeholder
+        this.placeholder = placeholder;
         
         // Add to scene
         this.scene.add(this.mesh);
@@ -930,8 +976,15 @@ export class FastEnemy extends BaseEnemy {
             (gltf) => {
                 console.log('Fast enemy model loaded successfully');
                 
-                // Remove placeholder
-                this.mesh.remove(placeholder);
+                // Remove placeholder - ensure it's actually removed
+                if (this.placeholder && this.mesh.children.includes(this.placeholder)) {
+                    this.mesh.remove(this.placeholder);
+                    this.placeholder = null;
+                    
+                    // Properly dispose of placeholder geometry and material
+                    if (geometry) geometry.dispose();
+                    if (material) material.dispose();
+                }
                 
                 // Add the loaded model to our mesh container
                 this.model = gltf.scene;
@@ -950,6 +1003,9 @@ export class FastEnemy extends BaseEnemy {
                         node.receiveShadow = true;
                     }
                 });
+                
+                // Store original materials before adding to scene
+                this.storeOriginalMaterials();
                 
                 // Add model to enemy mesh
                 this.mesh.add(this.model);
@@ -1043,6 +1099,8 @@ export class TankyEnemy extends BaseEnemy {
         
         // Add placeholder to the mesh container
         this.mesh.add(placeholder);
+        // Save reference to the placeholder
+        this.placeholder = placeholder;
         
         // Add to scene
         this.scene.add(this.mesh);
@@ -1059,8 +1117,15 @@ export class TankyEnemy extends BaseEnemy {
             (gltf) => {
                 console.log('Tanky enemy model loaded successfully');
                 
-                // Remove placeholder
-                this.mesh.remove(placeholder);
+                // Remove placeholder - ensure it's actually removed
+                if (this.placeholder && this.mesh.children.includes(this.placeholder)) {
+                    this.mesh.remove(this.placeholder);
+                    this.placeholder = null;
+                    
+                    // Properly dispose of placeholder geometry and material
+                    if (geometry) geometry.dispose();
+                    if (material) material.dispose();
+                }
                 
                 // Add the loaded model to our mesh container
                 this.model = gltf.scene;
@@ -1079,6 +1144,9 @@ export class TankyEnemy extends BaseEnemy {
                         node.receiveShadow = true;
                     }
                 });
+                
+                // Store original materials before adding to scene
+                this.storeOriginalMaterials();
                 
                 // Add model to enemy mesh
                 this.mesh.add(this.model);
@@ -1175,6 +1243,8 @@ export class RangedEnemy extends BaseEnemy {
         
         // Add placeholder to the mesh container
         this.mesh.add(placeholder);
+        // Save reference to the placeholder
+        this.placeholder = placeholder;
         
         // Add to scene
         this.scene.add(this.mesh);
@@ -1191,8 +1261,15 @@ export class RangedEnemy extends BaseEnemy {
             (gltf) => {
                 console.log('Ranged enemy model loaded successfully');
                 
-                // Remove placeholder
-                this.mesh.remove(placeholder);
+                // Remove placeholder - ensure it's actually removed
+                if (this.placeholder && this.mesh.children.includes(this.placeholder)) {
+                    this.mesh.remove(this.placeholder);
+                    this.placeholder = null;
+                    
+                    // Properly dispose of placeholder geometry and material
+                    if (geometry) geometry.dispose();
+                    if (material) material.dispose();
+                }
                 
                 // Add the loaded model to our mesh container
                 this.model = gltf.scene;
@@ -1211,6 +1288,9 @@ export class RangedEnemy extends BaseEnemy {
                         node.receiveShadow = true;
                     }
                 });
+                
+                // Store original materials before adding to scene
+                this.storeOriginalMaterials();
                 
                 // Add model to enemy mesh
                 this.mesh.add(this.model);

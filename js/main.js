@@ -23,6 +23,7 @@ class Game {
         this.paused = false;
         this.isGameStarted = false;
         this.savedEnemyStates = null;
+        this.isPreloading = false;
         
         // Create the renderer first so we can see the menu
         this.renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -229,6 +230,10 @@ class Game {
         
         // Track overall preloading progress
         let preloadingComplete = false;
+        this.isPreloading = true;
+        
+        // Create a full-screen black overlay
+        this.createLoadingOverlay();
         
         // Create a function to show the ready message when all preloading is done
         const finishPreloading = () => {
@@ -242,6 +247,7 @@ class Game {
             this.scene.waveManager = this.waveManager;
             
             // Show a message to press space to start
+            this.isPreloading = false;
             this.showStartGameMessage();
         };
         
@@ -264,6 +270,23 @@ class Game {
                 finishPreloading();
             });
         });
+    }
+    
+    /**
+     * Creates a full-screen black overlay to hide the scene during loading
+     */
+    createLoadingOverlay() {
+        this.loadingOverlay = document.createElement('div');
+        this.loadingOverlay.style.position = 'absolute';
+        this.loadingOverlay.style.top = '0';
+        this.loadingOverlay.style.left = '0';
+        this.loadingOverlay.style.width = '100%';
+        this.loadingOverlay.style.height = '100%';
+        this.loadingOverlay.style.backgroundColor = 'rgba(0, 0, 0, 1)';
+        this.loadingOverlay.style.zIndex = '900';
+        this.loadingOverlay.style.transition = 'opacity 1s';
+        
+        document.body.appendChild(this.loadingOverlay);
     }
     
     showStartGameMessage() {
@@ -309,6 +332,19 @@ class Game {
             if (this.waveManager.waveActive) {
                 // Wave has started, remove the message
                 message.style.opacity = '0';
+                
+                // Remove the black overlay
+                if (this.loadingOverlay) {
+                    this.loadingOverlay.style.opacity = '0';
+                    setTimeout(() => {
+                        if (this.loadingOverlay && this.loadingOverlay.parentNode) {
+                            this.loadingOverlay.parentNode.removeChild(this.loadingOverlay);
+                            this.loadingOverlay = null;
+                        }
+                    }, 1000);
+                }
+                
+                // Remove the message after fade out
                 setTimeout(() => {
                     if (message.parentNode) {
                         document.body.removeChild(message);
@@ -543,7 +579,7 @@ class Game {
     }
     
     animate(time) {
-        requestAnimationFrame((time) => this.animate(time));
+        requestAnimationFrame((t) => this.animate(t));
         
         if (this.isGameStarted) {
             // Game is active
@@ -581,12 +617,15 @@ class Game {
             this.cameraController.update();
         } else {
             // Menu is active, rotate the camera around the scene
-            this.menuCameraAngle += 0.001;
-            const radius = 20;
-            this.camera.position.x = Math.cos(this.menuCameraAngle) * radius;
-            this.camera.position.z = Math.sin(this.menuCameraAngle) * radius;
-            this.camera.position.y = 10 + Math.sin(this.menuCameraAngle * 0.5) * 2;
-            this.camera.lookAt(0, 0, 0);
+            // Only animate the camera if we're not in preloading
+            if (!this.isPreloading) {
+                this.menuCameraAngle += 0.001;
+                const radius = 20;
+                this.camera.position.x = Math.cos(this.menuCameraAngle) * radius;
+                this.camera.position.z = Math.sin(this.menuCameraAngle) * radius;
+                this.camera.position.y = 10 + Math.sin(this.menuCameraAngle * 0.5) * 2;
+                this.camera.lookAt(0, 0, 0);
+            }
         }
         
         // Render scene

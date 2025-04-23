@@ -43,7 +43,7 @@ export class BossPreloader {
         this.loadingContainer.style.boxShadow = 'var(--shadow)';
         this.loadingContainer.style.border = '1px solid rgba(255, 255, 255, 0.18)';
         this.loadingContainer.style.padding = '20px 30px';
-        this.loadingContainer.style.zIndex = '9999';
+        this.loadingContainer.style.zIndex = '1100';
         this.loadingContainer.style.display = 'flex';
         this.loadingContainer.style.flexDirection = 'column';
         this.loadingContainer.style.alignItems = 'center';

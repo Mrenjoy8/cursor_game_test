@@ -45,6 +45,9 @@ export class WaveManager {
         
         // Create wave display
         this.createWaveDisplay();
+        
+        // Initialize previousPreloadingState
+        this.previousPreloadingState = game.isPreloading;
     }
     
     createWaveDisplay() {
@@ -91,12 +94,22 @@ export class WaveManager {
     }
     
     updateWaveDisplay() {
+        // Make sure display elements exist
+        if (!this.waveContainer || !this.timerContainer) return;
+        
+        // Show wave information
         if (this.waveActive) {
-            if (this.isBossWave && this.currentBoss) {
-                // Show boss health and wave info
-                this.waveContainer.textContent = `BOSS WAVE ${this.currentWave} - Health: ${this.currentBoss.health}`;
+            if (this.isBossWave) {
+                // Boss wave active
+                if (this.currentBoss) {
+                    // Show boss health and wave info
+                    this.waveContainer.textContent = `BOSS WAVE ${this.currentWave} - Health: ${this.currentBoss.health}`;
+                } else {
+                    this.waveContainer.textContent = `BOSS WAVE ${this.currentWave}`;
+                }
                 this.waveContainer.style.color = 'var(--pink)';
             } else {
+                // Regular wave active
                 this.waveContainer.textContent = `WAVE ${this.currentWave} - Enemies: ${this.enemiesRemaining}`;
                 this.waveContainer.style.color = 'var(--white)';
             }
@@ -117,8 +130,14 @@ export class WaveManager {
                 this.timerContainer.style.display = 'none';
             }
         } else if (this.currentWave === 0) {
-            this.waveContainer.textContent = 'PRESS "SPACE" TO START';
-            this.waveContainer.style.color = 'var(--light-brown)';
+            // Check if game is preloading - if so, hide the space to start message
+            if (this.game && this.game.isPreloading) {
+                this.waveContainer.style.display = 'none';
+            } else {
+                this.waveContainer.style.display = 'block';
+                this.waveContainer.textContent = 'PRESS "SPACE" TO START';
+                this.waveContainer.style.color = 'var(--light-brown)';
+            }
             this.timerContainer.style.display = 'none';
         } else {
             // For wave complete, don't mention countdown since it's immediate
@@ -828,6 +847,12 @@ export class WaveManager {
     }
     
     update(deltaTime) {
+        // Check if we need to update the wave display due to preloading state change
+        if (this.game && this.previousPreloadingState !== this.game.isPreloading) {
+            this.previousPreloadingState = this.game.isPreloading;
+            this.updateWaveDisplay();
+        }
+        
         try {
             // Update enemies
             for (let i = this.enemies.length - 1; i >= 0; i--) {

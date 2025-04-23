@@ -25,6 +25,34 @@ class EnemyPool {
         // Check if we have an available enemy in the pool
         if (this.pools[type] && this.pools[type].length > 0) {
             const enemy = this.pools[type].pop();
+            
+            // Check if the enemy was recently released - implement cooldown period
+            const currentTime = Date.now();
+            if (enemy._lastReleaseTime && (currentTime - enemy._lastReleaseTime < 1500)) {
+                // If released less than 1.5 seconds ago, put it back and create a new enemy instead
+                console.log(`Enemy ${enemy.id} was recently released (${currentTime - enemy._lastReleaseTime}ms ago), creating new one instead`);
+                this.pools[type].push(enemy); // Put it back in the pool
+                
+                // Create a new instance
+                const newEnemy = (() => {
+                    switch (type) {
+                        case EnemyType.FAST:
+                            return new FastEnemy(scene, position, player, powerScaling);
+                        case EnemyType.TANKY:
+                            return new TankyEnemy(scene, position, player, powerScaling);
+                        case EnemyType.RANGED:
+                            return new RangedEnemy(scene, position, player, powerScaling);
+                        default:
+                            return new BasicEnemy(scene, position, player, powerScaling);
+                    }
+                })();
+                
+                // Log newly created enemy stats
+                console.log(`Created new ${newEnemy.type} enemy: Health=${newEnemy.health.toFixed(1)}/${newEnemy.maxHealth.toFixed(1)}, Damage=${newEnemy.damage.toFixed(1)}, Speed=${newEnemy.moveSpeed.toFixed(4)}, PowerScaling=${newEnemy.powerScaling.toFixed(2)}`);
+                
+                return newEnemy;
+            }
+            
             enemy.reset(position, powerScaling);
             
             // Log enemy stats after being pulled from pool
@@ -55,8 +83,17 @@ class EnemyPool {
     
     release(enemy) {
         if (enemy && enemy.type && this.pools[enemy.type]) {
+            // Record when this enemy was released to implement cooldown period
+            enemy._lastReleaseTime = Date.now();
+            
             // Reset minimal enemy state - leave ID and position intact
             enemy.isAlive = false;
+            
+            // Cancel any pending animations or timers
+            if (enemy._fadeOutInterval) {
+                clearInterval(enemy._fadeOutInterval);
+                enemy._fadeOutInterval = null;
+            }
             
             // Clean up power ring if it exists
             if (enemy.powerRing) {
@@ -94,10 +131,22 @@ class EnemyPool {
                     // Restore original materials before returning to pool
                     enemy.restoreOriginalMaterials();
                     
+                    // Force model visibility to false
+                    enemy.model.visible = false;
+                    
                     // Ensure model position is properly reset for next use
                     if (enemy.type === EnemyType.BASIC) {
                         enemy.model.position.y = -0.75;
-                        console.log(`Enemy returned to pool, model position reset to y=${enemy.model.position.y}`, enemy.id);
+                        console.log(`Enemy ${enemy.id} returned to pool, model position reset to y=${enemy.model.position.y}`);
+                    } else if (enemy.type === EnemyType.FAST) {
+                        enemy.model.position.y = -0.4;
+                        console.log(`Enemy ${enemy.id} returned to pool, model position reset to y=${enemy.model.position.y}`);
+                    } else if (enemy.type === EnemyType.TANKY) {
+                        enemy.model.position.y = -0.9;
+                        console.log(`Enemy ${enemy.id} returned to pool, model position reset to y=${enemy.model.position.y}`);
+                    } else if (enemy.type === EnemyType.RANGED) {
+                        enemy.model.position.y = -0.5;
+                        console.log(`Enemy ${enemy.id} returned to pool, model position reset to y=${enemy.model.position.y}`);
                     }
                 }
                 // Ensure material color is reset to default before pooling for basic mesh
@@ -130,7 +179,15 @@ class EnemyPool {
             }
             
             // Add to pool - preserve the enemy's identity and position
-            this.pools[enemy.type].push(enemy);
+            // Limit pool size to prevent memory issues
+            const MAX_POOL_SIZE = 30;
+            if (this.pools[enemy.type].length < MAX_POOL_SIZE) {
+                console.log(`Enemy ${enemy.id} of type ${enemy.type} returned to pool. Current pool size: ${this.pools[enemy.type].length}`);
+                this.pools[enemy.type].push(enemy);
+            } else {
+                console.log(`Pool for ${enemy.type} is full (${MAX_POOL_SIZE}), discarding enemy ${enemy.id}`);
+                // We don't need to do additional cleanup since we already did it above
+            }
         }
     }
 }
@@ -297,6 +354,13 @@ export class BaseEnemy {
     reset(position, powerScaling = 1.0) {
         // Reset enemy state when pulled from pool
         this.isAlive = true;
+        this._isAlreadyDying = false;
+        
+        // Cancel any pending animations or timers from previous use
+        if (this._fadeOutInterval) {
+            clearInterval(this._fadeOutInterval);
+            this._fadeOutInterval = null;
+        }
         
         // Update power scaling
         this.powerScaling = powerScaling;
@@ -352,48 +416,58 @@ export class BaseEnemy {
                 switch(this.type) {
                     case EnemyType.BASIC:
                         this.mesh.position.y = 0.75; // Half height for cone
-                        // Ensure model position is maintained
-                        if (this.model) {
-                            this.model.position.y = -0.75; // Reset the model's position to match initial creation
-                            console.log(`Basic enemy model position set to y=${this.model.position.y}`, this.id);
-                        }
                         break;
                     case EnemyType.FAST:
                         this.mesh.position.y = 0.4; // Half height for cube
-                        // Ensure model position is maintained
-                        if (this.model) {
-                            this.model.position.y = -0.4; // Reset the model's position to match initial creation
-                            console.log(`Fast enemy model position set to y=${this.model.position.y}`, this.id);
-                        }
                         break;
                     case EnemyType.TANKY:
                         this.mesh.position.y = 0.9; // Half height for cylinder
-                        // Ensure model position is maintained
-                        if (this.model) {
-                            this.model.position.y = -0.9; // Reset the model's position to match initial creation
-                            console.log(`Tanky enemy model position set to y=${this.model.position.y}`, this.id);
-                        }
                         break;
                     case EnemyType.RANGED:
                         this.mesh.position.y = 0.5; // Half height for sphere
-                        // Ensure model position is maintained
-                        if (this.model) {
-                            this.model.position.y = -0.5; // Reset the model's position to match initial creation
-                            console.log(`Ranged enemy model position set to y=${this.model.position.y}`, this.id);
-                        }
                         break;
                     default:
                         this.mesh.position.y = 0.75;
                 }
             }
+            
+            // If there's a model, ensure it's properly reset
+            if (this.model) {
+                // Force model to be visible
+                this.model.visible = true;
+                
+                // Ensure model position is correctly set based on enemy type
+                switch(this.type) {
+                    case EnemyType.BASIC:
+                        this.model.position.y = -0.75;
+                        break;
+                    case EnemyType.FAST:
+                        this.model.position.y = -0.4;
+                        break;
+                    case EnemyType.TANKY:
+                        this.model.position.y = -0.9;
+                        break;
+                    case EnemyType.RANGED:
+                        this.model.position.y = -0.5;
+                        break;
+                }
+                
+                console.log(`Enemy ${this.id} reset with model position y=${this.model.position.y}, type=${this.type}`);
+                
+                // Reset all materials
+                this.restoreOriginalMaterials();
+                
+                // Reset model opacity
+                this.model.traverse((node) => {
+                    if (node.isMesh && node.material) {
+                        node.material.transparent = false;
+                        node.material.opacity = 1;
+                    }
+                });
+            }
         } else if (position) {
             // Create a new mesh if needed
             this.createEnemyMesh(position, powerScaling);
-        }
-        
-        // If we have a model, restore original materials
-        if (this.model) {
-            this.restoreOriginalMaterials();
         }
     }
     
@@ -657,11 +731,20 @@ export class BaseEnemy {
     }
     
     die() {
+        // Prevent double-dying which can cause animation conflicts
+        if (!this.isAlive || this._isAlreadyDying) return;
+        this._isAlreadyDying = true;
         this.isAlive = false;
         
         // Give experience to player
         if (this.player) {
             this.player.gainExperience(this.experienceValue);
+        }
+        
+        // Cancel any existing fade out interval
+        if (this._fadeOutInterval) {
+            clearInterval(this._fadeOutInterval);
+            this._fadeOutInterval = null;
         }
         
         // Death animation depends on whether it's a model or a primitive geometry
@@ -687,12 +770,19 @@ export class BaseEnemy {
                     
                     if (shouldClear) {
                         clearInterval(fadeOut);
+                        this._fadeOutInterval = null;
+                        this._isAlreadyDying = false; // Reset flag
                         this.removeFromScene();
                     }
                 } else {
                     clearInterval(fadeOut);
+                    this._fadeOutInterval = null;
+                    this._isAlreadyDying = false; // Reset flag
                 }
             }, 50);
+            
+            // Store the interval reference for possible cleanup
+            this._fadeOutInterval = fadeOut;
         } else if (this.mesh && this.mesh.material) {
             // For primitive geometry enemies, use the original fade out method
             this.mesh.material.transparent = true;
@@ -702,14 +792,22 @@ export class BaseEnemy {
                         this.mesh.material.opacity -= 0.05;
                     } else {
                         clearInterval(fadeOut);
+                        this._fadeOutInterval = null;
+                        this._isAlreadyDying = false; // Reset flag
                         this.removeFromScene();
                     }
                 } else {
                     clearInterval(fadeOut);
+                    this._fadeOutInterval = null;
+                    this._isAlreadyDying = false; // Reset flag
                 }
             }, 50);
+            
+            // Store the interval reference for possible cleanup
+            this._fadeOutInterval = fadeOut;
         } else {
             // If no valid mesh/material, just remove from scene directly
+            this._isAlreadyDying = false; // Reset flag
             this.removeFromScene();
         }
     }

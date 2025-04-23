@@ -16,7 +16,7 @@ export class WaveManager {
         this.enemiesRemaining = 0;
         this.enemies = [];
         this.waveActive = false;
-        this.timeBetweenWaves = 0; // No pause between waves
+        this.timeBetweenWaves = 1500; // Add a 1.5 second pause between waves to ensure cleanup
         this.waveTimeout = null;
         
         // Wave timer properties
@@ -317,9 +317,18 @@ export class WaveManager {
     spawnEnemies(count) {
         const arenaSize = 28; // Slightly smaller than actual arena (30) to keep enemies away from walls
         
+        // Store the wave number when this spawning started
+        const spawnWaveNumber = this.currentWave;
+        
         for (let i = 0; i < count; i++) {
             // Delay spawning each enemy to prevent all appearing at once
             setTimeout(() => {
+                // Skip spawning if wave has changed or is no longer active
+                if (!this.waveActive || this.currentWave !== spawnWaveNumber) {
+                    console.log(`Skipping enemy spawn as wave ${spawnWaveNumber} is no longer active`);
+                    return;
+                }
+                
                 // Generate random position around the edge of the arena
                 let x, z;
                 

@@ -19,13 +19,13 @@ export class SorcererBoss extends BaseEnemy {
         
         // Movement properties - faster than Titan but keeps distance
         this.moveSpeed = 0.012;
-        this.teleportCooldown = 8000; // ms between teleports
+        this.teleportCooldown = 5000; // Changed from 8000ms to 5000ms
         this.lastTeleportTime = 0;
         this.attackCooldown = 1500; // ms between attacks (faster attacks)
-        this.specialAttackCooldown = 6000; // ms between special attacks
+        this.specialAttackCooldown = 2000; // Changed from 6000ms to 2000ms
         this.lastSpecialAttackTime = 0;
-        this.attackRange = 12; // Long attack range
-        this.preferredDistance = 10; // Tries to maintain this distance
+        this.attackRange = 15; // Changed from 12 to 15
+        this.preferredDistance = 12; // Changed from 10 to 12
         this.defaultColor = 0x9900ff; // Purple
         
         // Sorcerer appearance vars
@@ -1569,11 +1569,25 @@ export class SorcererBoss extends BaseEnemy {
     
     performSpecialAttack() {
         try {
-            // Randomly select one of the attack patterns
+            // Choose attack based on distance to player
             if (!this.isAlive) return;
             
-            const randomIndex = Math.floor(Math.random() * this.attackPatterns.length);
-            const attackPattern = this.attackPatterns[randomIndex];
+            // Get player position and calculate distance
+            const playerPosition = this.player.getPosition();
+            const distanceToPlayer = this.mesh.position.distanceTo(playerPosition);
+            
+            // Select attack based on distance
+            let attackPattern;
+            
+            if (distanceToPlayer >= 10) {
+                // Player is far away (10 or more distance) - use magic missiles
+                attackPattern = this.magicMissiles.bind(this);
+                console.log("Sorcerer using magic missiles based on distance");
+            } else {
+                // Player is close (less than 10 distance) - use arcane blast
+                attackPattern = this.arcaneBlast.bind(this);
+                console.log("Sorcerer using arcane blast based on distance");
+            }
             
             // Execute the selected attack pattern
             if (attackPattern) {

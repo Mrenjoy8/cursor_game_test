@@ -356,30 +356,30 @@ export class MenuUI {
         // Add regular enemy cards
         const regularEnemies = [
             {
-                name: 'Basic Enemy',
+                name: 'Timmy',
                 color: 'var(--pink)',
-                shape: 'Cone',
+                shape: 'Basic Enemy',
                 description: 'Standard enemy with balanced stats. Approaches the player and attacks at close range.',
                 image: 'assets/enemies/basic_enemy.png'
             },
             {
-                name: 'Fast Enemy',
+                name: 'AJ',
                 color: 'var(--light-green)',
-                shape: 'Cube',
+                shape: 'Fast Enemy',
                 description: 'Quick but fragile. Moves twice as fast as basic enemies and attacks more frequently.',
                 image: 'assets/enemies/fast_enemy.png'
             },
             {
-                name: 'Tanky Enemy',
+                name: 'Uncle Elvis',
                 color: 'var(--primary-green)',
-                shape: 'Cylinder',
+                shape: 'Tanky Enemy',
                 description: 'Slow but powerful. Has high health and damage, but moves at half the speed of basic enemies.',
                 image: 'assets/enemies/tanky_enemy.png'
             },
             {
-                name: 'Ranged Enemy',
+                name: 'Claire',
                 color: 'var(--light-brown)',
-                shape: 'Sphere',
+                shape: 'Ranged Enemy',
                 description: 'Attacks from a distance. Fires projectiles at the player and tries to maintain optimal range.',
                 image: 'assets/enemies/ranged_enemy.png'
             }
@@ -412,23 +412,23 @@ export class MenuUI {
         // Add boss enemy cards
         const bossEnemies = [
             {
-                name: 'Titan',
+                name: 'El Mamadisimo',
                 color: 'var(--primary-green)',
-                shape: 'Large Humanoid',
+                shape: 'Titan Boss',
                 description: 'Powerful melee boss with high health and armor. Special attacks include Ground Smash, Charge Attack, and Multi-Smash.',
                 image: 'assets/bosses/titan.png'
             },
             {
-                name: 'Sorcerer',
+                name: 'Magic Granny',
                 color: 'var(--pink)',
-                shape: 'Floating Entity',
-                description: 'Magic-focused boss that attacks with devastating spells. Can teleport and create magical barriers.',
+                shape: 'Sorcerer Boss',
+                description: 'Magic-focused boss that attacks with devastating spells. Can teleport and create pin point explosions.',
                 image: 'assets/bosses/sorcerer.png'
             },
             {
-                name: 'Hunter',
+                name: 'Mickey (old mascot)',
                 color: 'var(--light-brown)',
-                shape: 'Agile Creature',
+                shape: 'Hunter Boss',
                 description: 'Fast-moving boss that combines melee and ranged attacks. Can perform quick dashes and fire volleys of projectiles.',
                 image: 'assets/bosses/hunter.png'
             }

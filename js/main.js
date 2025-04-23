@@ -11,6 +11,7 @@ import { MenuUI } from './menuUI.js';
 import { Projectile } from './projectile.js';
 import { HamsterCage } from './hamsterCage.js';
 import { EnemyPreloader } from './enemyPreloader.js';
+import { BossPreloader } from './bossPreloader.js';
 
 // Game class to handle core functionality
 class Game {
@@ -224,16 +225,17 @@ class Game {
     }
     
     initializeGameWithPreloader() {
-        console.log("Starting enemy preloading process...");
+        console.log("Starting preloading process...");
         
-        // Create preloader
-        const preloader = new EnemyPreloader(this.scene, this.player);
+        // Track overall preloading progress
+        let preloadingComplete = false;
         
-        // Preload enemies and initialize wave manager when done
-        preloader.preloadEnemies().then(() => {
-            console.log("Enemy preloading complete - initializing wave manager");
+        // Create a function to show the ready message when all preloading is done
+        const finishPreloading = () => {
+            preloadingComplete = true;
+            console.log("All preloading complete - initializing wave manager");
             
-            // Now that enemies are preloaded, initialize the wave manager
+            // Now that everything is preloaded, initialize the wave manager
             this.waveManager.initialize();
             
             // Store reference to waveManager in scene for components to access
@@ -241,6 +243,26 @@ class Game {
             
             // Show a message to press space to start
             this.showStartGameMessage();
+        };
+        
+        // First preload the enemies (most critical for first wave)
+        console.log("Step 1: Preloading enemy models...");
+        const enemyPreloader = new EnemyPreloader(this.scene, this.player);
+        
+        // Preload enemies, then when complete, preload bosses
+        enemyPreloader.preloadEnemies().then(() => {
+            console.log("Enemy preloading complete - starting boss preloading");
+            
+            // Now preload the boss models
+            console.log("Step 2: Preloading boss models...");
+            const bossPreloader = new BossPreloader(this.scene, this.player);
+            
+            // Start boss preloading process - no need to keep a reference anymore
+            // since bosses are stored directly in the boss pool
+            bossPreloader.preloadBosses().then(() => {
+                // All preloading complete
+                finishPreloading();
+            });
         });
     }
     

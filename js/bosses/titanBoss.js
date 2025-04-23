@@ -910,8 +910,14 @@ export class TitanBoss extends BaseEnemy {
         try {
             console.log("Titan boss dramatic entrance");
             
+            // Safety check - if mesh doesn't exist, we can't do the animation
+            if (!this.mesh) {
+                console.warn("Cannot play entrance animation - mesh is null");
+                return;
+            }
+            
             // Make boss initially invisible
-            if (this.mesh) this.mesh.visible = false;
+            this.mesh.visible = false;
             
             // Create ground impact effect
             const position = this.mesh.position.clone();
@@ -1023,40 +1029,52 @@ export class TitanBoss extends BaseEnemy {
                         const riseProgress = Math.min(riseElapsed / riseDuration, 1.0);
                         
                         // Smoothly rise from ground
-                        this.mesh.position.y = -this.size + (targetY + this.size) * riseProgress;
+                        if (this.mesh) { // Extra safety check
+                            this.mesh.position.y = -this.size + (targetY + this.size) * riseProgress;
                         
-                        if (riseProgress < 1.0) {
-                            requestAnimationFrame(riseAnimation);
+                            if (riseProgress < 1.0) {
+                                requestAnimationFrame(riseAnimation);
+                            } else {
+                                // End rise animation
+                                this.mesh.position.y = targetY;
+                                
+                                // Play "idle" or "run" animation if available
+                                if (this.mixer && this.animationActions['Idle']) {
+                                    this.playAnimation('Idle');
+                                } else if (this.mixer && this.animationActions['Run']) {
+                                    this.playAnimation('Run');
+                                }
+                                
+                                // Flash eyes red
+                                if (this.leftEye && this.rightEye) {
+                                    const originalIntensity = this.leftEye.material.emissiveIntensity;
+                                    this.leftEye.material.emissiveIntensity = 2;
+                                    this.rightEye.material.emissiveIntensity = 2;
+                                    
+                                    setTimeout(() => {
+                                        if (this.leftEye && this.rightEye) {
+                                            this.leftEye.material.emissiveIntensity = originalIntensity;
+                                            this.rightEye.material.emissiveIntensity = originalIntensity;
+                                        }
+                                    }, 500);
+                                }
+                                
+                                // Raise arms in threatening pose
+                                if (this.leftArm && this.rightArm) {
+                                    this.leftArm.rotation.x = -Math.PI / 3;
+                                    this.rightArm.rotation.x = -Math.PI / 3;
+                                    
+                                    setTimeout(() => {
+                                        if (this.leftArm && this.rightArm) {
+                                            this.leftArm.rotation.x = 0;
+                                            this.rightArm.rotation.x = 0;
+                                        }
+                                    }, 800);
+                                }
+                            }
                         } else {
-                            // End rise animation
-                            this.mesh.position.y = targetY;
-                            
-                            // Flash eyes red
-                            if (this.leftEye && this.rightEye) {
-                                const originalIntensity = this.leftEye.material.emissiveIntensity;
-                                this.leftEye.material.emissiveIntensity = 2;
-                                this.rightEye.material.emissiveIntensity = 2;
-                                
-                                setTimeout(() => {
-                                    if (this.leftEye && this.rightEye) {
-                                        this.leftEye.material.emissiveIntensity = originalIntensity;
-                                        this.rightEye.material.emissiveIntensity = originalIntensity;
-                                    }
-                                }, 500);
-                            }
-                            
-                            // Raise arms in threatening pose
-                            if (this.leftArm && this.rightArm) {
-                                this.leftArm.rotation.x = -Math.PI / 3;
-                                this.rightArm.rotation.x = -Math.PI / 3;
-                                
-                                setTimeout(() => {
-                                    if (this.leftArm && this.rightArm) {
-                                        this.leftArm.rotation.x = 0;
-                                        this.rightArm.rotation.x = 0;
-                                    }
-                                }, 800);
-                            }
+                            // Mesh was disposed during animation, exit
+                            console.warn("Mesh was disposed during rise animation");
                         }
                     };
                     
@@ -1209,27 +1227,155 @@ export class TitanBoss extends BaseEnemy {
     
     // Play a specific animation if the mixer and animation exists
     playAnimation(name) {
-        if (!this.mixer || !this.animationActions[name]) return;
-        
-        // Stop any currently playing animation
-        if (this.currentAnimation) {
-            this.currentAnimation.fadeOut(0.2);
+        try {
+            // Safety checks to prevent errors
+            if (!this.mixer) {
+                console.warn(`Cannot play animation '${name}': mixer is null`);
+                return;
+            }
+            
+            if (!this.model) {
+                console.warn(`Cannot play animation '${name}': model is null`);
+                return;
+            }
+            
+            // Check if animation exists before attempting to play it
+            if (!this.animationActions || !this.animationActions[name]) {
+                console.warn(`Animation '${name}' not found in available animations`);
+                return;
+            }
+            
+            // Make sure the animation action is valid
+            const action = this.animationActions[name];
+            if (!action || typeof action.reset !== 'function') {
+                console.warn(`Invalid animation action for '${name}'`);
+                return;
+            }
+            
+            // Stop current animation with safety check
+            if (this.currentAnimation && typeof this.currentAnimation.fadeOut === 'function') {
+                this.currentAnimation.fadeOut(0.2);
+            }
+            
+            // Start new animation with try-catch
+            try {
+                this.currentAnimation = action;
+                this.currentAnimation.reset();
+                this.currentAnimation.fadeIn(0.2);
+                this.currentAnimation.play();
+                
+                console.log(`Playing titan animation: ${name}`);
+            } catch (animError) {
+                console.error(`Error playing animation '${name}':`, animError);
+                this.currentAnimation = null;
+            }
+        } catch (error) {
+            console.error(`Error in Titan playAnimation('${name}'):`, error);
+            // Reset animation state on error
+            this.currentAnimation = null;
         }
-        
-        // Start the new animation
-        this.currentAnimation = this.animationActions[name];
-        this.currentAnimation.reset();
-        this.currentAnimation.fadeIn(0.2);
-        this.currentAnimation.play();
-        
-        console.log(`Playing titan animation: ${name}`);
     }
     
     // Stop current animation
     stopAnimation() {
-        if (this.currentAnimation) {
-            this.currentAnimation.stop();
+        try {
+            // Stop current animation if one is playing
+            if (this.currentAnimation && typeof this.currentAnimation.stop === 'function') {
+                this.currentAnimation.stop();
+                this.currentAnimation = null;
+            }
+        } catch (error) {
+            console.error("Error in Titan stopAnimation:", error);
             this.currentAnimation = null;
         }
+    }
+
+    /**
+     * Reset the boss for reuse from the pool
+     * @param {THREE.Vector3} position - New position for the boss
+     * @param {number} bossLevel - Level of the boss
+     */
+    reset(position, bossLevel = 1) {
+        // Store the new boss level
+        this.bossLevel = bossLevel;
+        
+        // Reset health and stats based on level
+        this.maxHealth = 300 * bossLevel;
+        this.health = this.maxHealth;
+        this.damage = 25 + (12 * bossLevel);
+        this.experienceValue = 500 * bossLevel;
+        
+        // Reset other properties
+        this.isAlive = true;
+        this.isCharging = false;
+        this.chargeTarget = null;
+        this.chargeHitPlayer = false;
+        this.lastAttackTime = 0;
+        this.lastSpecialAttackTime = 0;
+        this.lastGroundSmashTime = 0;
+        this.currentPhase = 0;
+        
+        // Reset size based on level
+        this.size = 2.0 + (bossLevel * 0.6);
+        
+        // Check if mesh exists, if not create it
+        if (!this.mesh) {
+            console.log(`Mesh was null, creating enemy mesh for TitanBoss at position ${position.x}, ${position.y}, ${position.z}`);
+            this.createEnemyMesh(position);
+            
+            // After creating mesh, make sure health bar is hidden during preloading
+            if (this.healthBarBg) {
+                // Move health bar to appropriate position
+                this.healthBarBg.position.y = 7.0 + (bossLevel * 0.5);
+                
+                // Make sure it's not visible until the boss actually appears
+                this.healthBarBg.visible = false;
+            }
+            
+            // We don't call playEntranceAnimation here since createEnemyMesh is just for preloading
+        } else {
+            // Reset mesh position
+            this.mesh.position.copy(position);
+            this.mesh.position.y = this.size * 0.6; // Lift based on size
+            this.mesh.visible = true;
+            
+            // Make model visible
+            if (this.model) {
+                this.model.visible = true;
+                
+                // Apply proper scale for current level
+                const modelScale = 4.0 + (this.bossLevel * 0.7);
+                this.model.scale.set(modelScale, modelScale, modelScale);
+                
+                // Ensure all mesh parts are visible
+                this.model.traverse(child => {
+                    if (child.isMesh) {
+                        child.visible = true;
+                        // Reset material color/opacity if needed
+                        if (child.material) {
+                            child.material.opacity = 1;
+                            child.material.transparent = false;
+                            
+                            // Reset color if we have stored original colors
+                            if (this._originalMaterials && this._originalMaterials.has(child)) {
+                                child.material.color.copy(this._originalMaterials.get(child));
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // Reset health bar
+            if (this.healthBarBg) {
+                this.healthBarBg.position.y = 7.0 + (bossLevel * 0.5);
+                this.healthBarBg.visible = true; // Make sure it's visible for the actual boss
+            }
+            this.updateHealthBar();
+            
+            // Play entrance animation
+            this.playEntranceAnimation();
+        }
+        
+        console.log(`Reset Titan boss to level ${bossLevel} at position ${position.x}, ${position.y}, ${position.z}`);
     }
 } 

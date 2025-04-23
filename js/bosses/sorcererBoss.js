@@ -318,72 +318,130 @@ export class SorcererBoss extends BaseEnemy {
     }
     
     createFloatingParticles() {
-        // Clean up any existing particles first
-        if (this.particles && this.particles.length > 0) {
-            for (const particle of this.particles) {
-                if (particle.geometry) particle.geometry.dispose();
-                if (particle.material) particle.material.dispose();
-                if (particle.parent) particle.parent.remove(particle);
+        try {
+            // Check if mesh exists before proceeding
+            if (!this.mesh) {
+                console.warn("Cannot create floating particles - mesh is null");
+                return;
             }
-        }
-        
-        // Initialize or reset particles array
-        this.particles = [];
-        const particleCount = 5 + this.bossLevel;
-        
-        for (let i = 0; i < particleCount; i++) {
-            const particleGeometry = new THREE.SphereGeometry(this.size * 0.1, 6, 6);
-            const particleMaterial = new THREE.MeshBasicMaterial({ 
-                color: 0x00ccff,
-                transparent: true,
-                opacity: 0.7
-            });
             
-            const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+            // Clean up any existing particles first
+            if (this.particles && this.particles.length > 0) {
+                for (const particle of this.particles) {
+                    if (particle.geometry) particle.geometry.dispose();
+                    if (particle.material) particle.material.dispose();
+                    if (particle.parent) particle.parent.remove(particle);
+                }
+            }
             
-            // Position in orbit around sorcerer
-            const angle = (i / particleCount) * Math.PI * 2;
-            const radius = this.size * 1.5;
+            // Initialize or reset particles array
+            this.particles = [];
             
-            particle.position.set(
-                Math.cos(angle) * radius,
-                this.size * 0.5,
-                Math.sin(angle) * radius
-            );
+            // Safety check for boss level
+            const bossLevel = this.bossLevel || 1;
+            const particleCount = 5 + bossLevel;
             
-            // Store orbit data
-            particle.userData = {
-                orbitAngle: angle,
-                orbitRadius: radius,
-                orbitSpeed: 0.001 + (Math.random() * 0.002),
-                verticalOffset: Math.random() * 0.5
-            };
+            // Safety check for size
+            const size = this.size || 1.2;
             
-            this.mesh.add(particle);
-            this.particles.push(particle);
+            for (let i = 0; i < particleCount; i++) {
+                try {
+                    const particleGeometry = new THREE.SphereGeometry(size * 0.1, 6, 6);
+                    const particleMaterial = new THREE.MeshBasicMaterial({ 
+                        color: 0x00ccff,
+                        transparent: true,
+                        opacity: 0.7
+                    });
+                    
+                    const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+                    
+                    // Position in orbit around sorcerer
+                    const angle = (i / particleCount) * Math.PI * 2;
+                    const radius = size * 1.5;
+                    
+                    particle.position.set(
+                        Math.cos(angle) * radius,
+                        size * 0.5,
+                        Math.sin(angle) * radius
+                    );
+                    
+                    // Store orbit data
+                    particle.userData = {
+                        orbitAngle: angle,
+                        orbitRadius: radius,
+                        orbitSpeed: 0.001 + (Math.random() * 0.002),
+                        verticalOffset: Math.random() * 0.5
+                    };
+                    
+                    this.mesh.add(particle);
+                    this.particles.push(particle);
+                } catch (particleError) {
+                    console.error("Error creating individual particle:", particleError);
+                    // Continue with other particles
+                }
+            }
+        } catch (error) {
+            console.error("Error in SorcererBoss.createFloatingParticles:", error);
+            // Initialize particles as empty array to prevent undefined errors
+            this.particles = [];
         }
     }
     
     playAnimation(name) {
-        // Check if animation exists before attempting to play it
-        if (!this.animationActions[name]) {
-            return;
+        try {
+            // Safety checks to prevent errors
+            if (!this.mixer) {
+                console.warn(`Cannot play animation '${name}': mixer is null`);
+                return;
+            }
+            
+            if (!this.model) {
+                console.warn(`Cannot play animation '${name}': model is null`);
+                return;
+            }
+            
+            // Check if animation exists before attempting to play it
+            if (!this.animationActions || !this.animationActions[name]) {
+                console.warn(`Animation '${name}' not found in available animations`);
+                return;
+            }
+            
+            // Make sure the animation action is valid
+            const action = this.animationActions[name];
+            if (!action || typeof action.reset !== 'function') {
+                console.warn(`Invalid animation action for '${name}'`);
+                return;
+            }
+            
+            // Stop current animation with safety check
+            if (this.currentAnimation && typeof this.currentAnimation.fadeOut === 'function') {
+                this.currentAnimation.fadeOut(0.2);
+            }
+            
+            // Start new animation with try-catch
+            try {
+                this.currentAnimation = action;
+                this.currentAnimation.reset().fadeIn(0.2).play();
+            } catch (animError) {
+                console.error(`Error playing animation '${name}':`, animError);
+                this.currentAnimation = null;
+            }
+        } catch (error) {
+            console.error(`Error in Sorcerer playAnimation('${name}'):`, error);
+            // Reset animation state on error
+            this.currentAnimation = null;
         }
-        
-        // Stop current animation
-        if (this.currentAnimation) {
-            this.currentAnimation.fadeOut(0.2);
-        }
-        
-        // Start new animation
-        this.currentAnimation = this.animationActions[name];
-        this.currentAnimation.reset().fadeIn(0.2).play();
     }
     
     stopAnimation() {
-        // Stop current animation if one is playing
-        if (this.currentAnimation) {
-            this.currentAnimation.fadeOut(0.2);
+        try {
+            // Stop current animation if one is playing
+            if (this.currentAnimation && typeof this.currentAnimation.fadeOut === 'function') {
+                this.currentAnimation.fadeOut(0.2);
+                this.currentAnimation = null;
+            }
+        } catch (error) {
+            console.error("Error in Sorcerer stopAnimation:", error);
             this.currentAnimation = null;
         }
     }
@@ -1627,6 +1685,108 @@ export class SorcererBoss extends BaseEnemy {
             }
         } catch (error) {
             console.error("Error in Sorcerer enterNewPhase:", error);
+        }
+    }
+
+    /**
+     * Reset the boss for reuse from the pool
+     * @param {THREE.Vector3} position - New position for the boss
+     * @param {number} bossLevel - Level of the boss
+     */
+    reset(position, bossLevel = 1) {
+        try {
+            // Store the new boss level
+            this.bossLevel = bossLevel;
+            
+            // Reset health and stats based on level
+            this.maxHealth = 150 * bossLevel;
+            this.health = this.maxHealth;
+            this.damage = 7.5 + (10 * bossLevel);
+            this.experienceValue = 500 * bossLevel;
+            
+            // Reset other properties
+            this.isAlive = true;
+            this.lastAttackTime = 0;
+            this.lastSpecialAttackTime = 0;
+            this.lastTeleportTime = 0;
+            this.currentPhase = 0;
+            
+            // Clean up any existing projectiles
+            if (this.projectiles && this.projectiles.length > 0) {
+                for (const projectile of this.projectiles) {
+                    if (projectile && projectile.isActive && projectile.deactivate) {
+                        projectile.deactivate();
+                    }
+                }
+                this.projectiles = [];
+            }
+            
+            // Reset size based on level
+            this.size = 1.2 + (bossLevel * 0.4);
+            
+            // Clean up particles first to avoid errors
+            if (this.particles && this.particles.length > 0) {
+                for (const particle of this.particles) {
+                    if (particle.geometry) particle.geometry.dispose();
+                    if (particle.material) particle.material.dispose();
+                    if (particle.parent) particle.parent.remove(particle);
+                }
+                this.particles = [];
+            }
+            
+            // Check if mesh exists, if not create it
+            if (!this.mesh) {
+                console.log("Mesh was null, creating enemy mesh for SorcererBoss");
+                this.createEnemyMesh(position);
+            } else {
+                // Reset mesh position
+                this.mesh.position.copy(position);
+                this.mesh.position.y = this.size + 0.5; // Float above ground
+                this.mesh.visible = true;
+                
+                // Make model visible
+                if (this.model) {
+                    this.model.visible = true;
+                    
+                    // Apply scale adjustments based on boss level
+                    const modelScale = 3.0 + (this.bossLevel * 0.5);
+                    this.model.scale.set(modelScale, modelScale, modelScale);
+                    
+                    // Make sure all meshes are visible
+                    this.model.traverse(child => {
+                        if (child.isMesh) {
+                            child.visible = true;
+                            // Reset material color if needed
+                            if (this._originalMaterials && this._originalMaterials.has(child)) {
+                                child.material.color.copy(this._originalMaterials.get(child));
+                            }
+                        }
+                    });
+                }
+                
+                // Reset health bar
+                this.updateHealthBar();
+                
+                // Recreate particle effects - only when mesh exists
+                this.createFloatingParticles();
+            }
+            
+            // Play entrance animation
+            this.playEntranceAnimation();
+            
+            console.log(`Reset Sorcerer boss to level ${bossLevel} at position ${position.x}, ${position.y}, ${position.z}`);
+        } catch (error) {
+            console.error("Error resetting SorcererBoss:", error);
+            
+            // Ensure particles array exists to prevent future errors
+            this.particles = this.particles || [];
+            this.projectiles = this.projectiles || [];
+            
+            // If there was an error, attempt to create a new mesh as fallback
+            if (!this.mesh && position) {
+                console.log("Attempting to create new mesh after reset error");
+                this.createEnemyMesh(position);
+            }
         }
     }
 } 

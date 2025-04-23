@@ -1,6 +1,6 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.module.js';
 import { Enemy, BaseEnemy, BasicEnemy, FastEnemy, TankyEnemy, RangedEnemy, EnemyType, enemyPool } from './enemy.js';
-import { BossFactory, BossType } from './bossFactory.js';
+import { BossFactory, BossType, bossPool } from './bossFactory.js';
 
 export class WaveManager {
     constructor(scene, player, game) {
@@ -425,7 +425,8 @@ export class WaveManager {
         setTimeout(() => {
             if (!this.waveActive) return; // Don't spawn if wave is no longer active
             
-            // Create the boss using the factory
+            // Get boss from pool or create new through factory
+            // The boss factory will automatically use the pool if a boss is available
             this.currentBoss = BossFactory.createBoss(this.scene, position, this.player, bossLevel, bossType);
             
             // Ensure boss is properly visible and active
@@ -831,7 +832,7 @@ export class WaveManager {
                     const bossPosition = enemy.getPosition().clone(); // This now returns a fallback position if null
                     console.log("Boss death position:", bossPosition);
                     
-                    // Then handle boss removal and cleanup
+                    // If the boss mesh is still visible, call die() to handle animations
                     if (enemy.mesh && enemy.mesh.visible) {
                         console.log("Explicitly calling boss die() method");
                         enemy.die(); // This will clean up the mesh
@@ -841,6 +842,9 @@ export class WaveManager {
                     
                     // Create death effect
                     this.createBossDeathEffect(bossPosition);
+                    
+                    // Return boss to pool instead of disposing completely
+                    bossPool.release(enemy);
                     
                     // Clear boss reference and update state
                     this.currentBoss = null;

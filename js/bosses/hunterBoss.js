@@ -505,26 +505,63 @@ export class HunterBoss extends BaseEnemy {
     
     // Play a specific animation if the mixer and animation exists
     playAnimation(name) {
-        if (!this.mixer || !this.animationActions[name]) return;
-        
-        // Stop any currently playing animation
-        if (this.currentAnimation) {
-            this.currentAnimation.fadeOut(0.2);
+        try {
+            // Safety checks to prevent errors
+            if (!this.mixer) {
+                console.warn(`Cannot play animation '${name}': mixer is null`);
+                return;
+            }
+            
+            if (!this.model) {
+                console.warn(`Cannot play animation '${name}': model is null`);
+                return;
+            }
+            
+            // Check if animation exists before attempting to play it
+            if (!this.animationActions || !this.animationActions[name]) {
+                console.warn(`Animation '${name}' not found in available animations`);
+                return;
+            }
+            
+            // Make sure the animation action is valid
+            const action = this.animationActions[name];
+            if (!action || typeof action.reset !== 'function') {
+                console.warn(`Invalid animation action for '${name}'`);
+                return;
+            }
+            
+            // Stop current animation with safety check
+            if (this.currentAnimation && typeof this.currentAnimation.fadeOut === 'function') {
+                this.currentAnimation.fadeOut(0.2);
+            }
+            
+            // Start new animation with try-catch
+            try {
+                this.currentAnimation = action;
+                this.currentAnimation.reset().fadeIn(0.2).play();
+                
+                console.log(`Playing hunter animation: ${name}`);
+            } catch (animError) {
+                console.error(`Error playing animation '${name}':`, animError);
+                this.currentAnimation = null;
+            }
+        } catch (error) {
+            console.error(`Error in Hunter playAnimation('${name}'):`, error);
+            // Reset animation state on error
+            this.currentAnimation = null;
         }
-        
-        // Start the new animation
-        this.currentAnimation = this.animationActions[name];
-        this.currentAnimation.reset();
-        this.currentAnimation.fadeIn(0.2);
-        this.currentAnimation.play();
-        
-        console.log(`Playing hunter animation: ${name}`);
     }
     
     // Stop current animation
     stopAnimation() {
-        if (this.currentAnimation) {
-            this.currentAnimation.stop();
+        try {
+            // Stop current animation if one is playing
+            if (this.currentAnimation && typeof this.currentAnimation.fadeOut === 'function') {
+                this.currentAnimation.fadeOut(0.2);
+                this.currentAnimation = null;
+            }
+        } catch (error) {
+            console.error("Error in Hunter stopAnimation:", error);
             this.currentAnimation = null;
         }
     }
@@ -806,77 +843,169 @@ export class HunterBoss extends BaseEnemy {
         try {
             console.log("Hunter boss dramatic entrance");
             
-            // Make boss initially invisible but keep health bar visible
-            if (this.mesh) {
-                // Store reference to the health bar so it's not affected by mesh visibility
-                const healthBar = this.healthBarBg;
-                if (healthBar) {
-                    // Temporarily detach health bar from mesh to keep it visible
-                    if (healthBar.parent) {
-                        healthBar.parent.remove(healthBar);
-                    }
-                    this.scene.add(healthBar);
-                }
-                
-                // Make mesh invisible but preserve health bar
-                this.mesh.visible = false;
-                
-                // Wait for smoke to appear then show boss
-                setTimeout(() => {
-                    if (!this.isAlive) return;
-                    
-                    // Show boss
-                    if (this.mesh) this.mesh.visible = true;
-                    
-                    // Re-attach health bar to mesh if it was detached
-                    if (healthBar) {
-                        this.scene.remove(healthBar);
-                        this.mesh.add(healthBar);
-                    }
-                    
-                    // Add visual flash
-                    this.flashColor(0x00ffaa, 500);
-                    
-                    // Leap upward animation
-                    const jumpHeight = 3;
-                    const jumpDuration = 500;
-                    const startY = this.mesh.position.y;
-                    const startTime = Date.now();
-                    
-                    const jumpAnimation = () => {
-                        const elapsed = Date.now() - startTime;
-                        const progress = Math.min(elapsed / jumpDuration, 1.0);
-                        
-                        // Parabolic jump animation (up and down)
-                        const heightFactor = Math.sin(progress * Math.PI);
-                        
-                        if (this.mesh) {
-                            this.mesh.position.y = startY + (jumpHeight * heightFactor);
-                        }
-                        
-                        if (progress < 1.0) {
-                            requestAnimationFrame(jumpAnimation);
-                        } else {
-                            // End of animation
-                            if (this.mesh) this.mesh.position.y = startY;
-                            
-                            // Immediately perform a special attack to announce presence
-                            setTimeout(() => {
-                                if (this.isAlive) this.throwingKnives();
-                            }, 500);
-                        }
-                    };
-                    
-                    jumpAnimation();
-                }, 500);
+            // Safety check - if mesh doesn't exist, we can't do the animation
+            if (!this.mesh) {
+                console.warn("Cannot play entrance animation - mesh is null");
+                return;
             }
             
-            // Create smoke cloud at spawn location
-            const position = this.mesh.position.clone();
+            // Make boss initially invisible but keep health bar visible
+            // Store reference to the health bar so it's not affected by mesh visibility
+            const healthBar = this.healthBarBg;
+            if (healthBar) {
+                // Temporarily detach health bar from mesh to keep it visible
+                if (healthBar.parent) {
+                    healthBar.parent.remove(healthBar);
+                }
+                this.scene.add(healthBar);
+            }
+            
+            // Make mesh invisible but preserve health bar
+            this.mesh.visible = false;
+            
+            // Wait for smoke to appear then show boss
+            setTimeout(() => {
+                if (!this.isAlive || !this.mesh) return;
+                
+                // Show boss
+                this.mesh.visible = true;
+                
+                // Re-attach health bar to mesh if it was detached
+                if (healthBar) {
+                    this.scene.remove(healthBar);
+                    this.mesh.add(healthBar);
+                }
+                
+                // Add visual flash
+                this.flashColor(0x00ffaa, 500);
+                
+                // Leap upward animation
+                const jumpHeight = 3;
+                const jumpDuration = 500;
+                const startY = this.mesh.position.y;
+                const startTime = Date.now();
+                
+                const jumpAnimation = () => {
+                    const elapsed = Date.now() - startTime;
+                    const progress = Math.min(elapsed / jumpDuration, 1.0);
+                    
+                    // Parabolic jump animation (up and down)
+                    const heightFactor = Math.sin(progress * Math.PI);
+                    
+                    if (this.mesh) {
+                        this.mesh.position.y = startY + (jumpHeight * heightFactor);
+                    }
+                    
+                    if (progress < 1.0) {
+                        requestAnimationFrame(jumpAnimation);
+                    } else {
+                        // End of animation
+                        if (this.mesh) this.mesh.position.y = startY;
+                        
+                        // Immediately perform a special attack to announce presence
+                        setTimeout(() => {
+                            if (this.isAlive) this.throwingKnives();
+                        }, 500);
+                    }
+                };
+                
+                jumpAnimation();
+            }, 500);
+            
+            // Create smoke cloud at spawn location - make sure mesh exists first
             this.createSmokeEffect();
         } catch (error) {
             console.error("Error in Hunter entrance animation:", error);
         }
+    }
+    
+    createSmokeEffect() {
+        // Safety check - if mesh doesn't exist, we can't do the effect
+        if (!this.mesh) {
+            console.warn("Cannot create smoke effect - mesh is null");
+            return;
+        }
+        
+        // Create smoke cloud effect
+        const position = this.mesh.position.clone();
+        position.y = 0.5; // Just above ground
+        
+        // Create smoke particles
+        const particleCount = 50;
+        const particles = [];
+        
+        for (let i = 0; i < particleCount; i++) {
+            const size = 0.2 + Math.random() * 0.4;
+            const geometry = new THREE.SphereGeometry(size, 8, 8);
+            const material = new THREE.MeshBasicMaterial({ 
+                color: 0xaaffee,
+                transparent: true,
+                opacity: 0.5 + Math.random() * 0.3
+            });
+            
+            const particle = new THREE.Mesh(geometry, material);
+            
+            // Random position within circle
+            const angle = Math.random() * Math.PI * 2;
+            const radius = Math.random() * this.size * 2;
+            particle.position.set(
+                position.x + Math.cos(angle) * radius,
+                position.y + Math.random() * this.size * 2,
+                position.z + Math.sin(angle) * radius
+            );
+            
+            // Random velocity for expansion
+            const speed = 0.01 + Math.random() * 0.02;
+            const velocity = {
+                x: Math.cos(angle) * speed,
+                y: 0.01 + Math.random() * 0.02,
+                z: Math.sin(angle) * speed
+            };
+            
+            this.scene.add(particle);
+            particles.push({ mesh: particle, velocity: velocity });
+        }
+        
+        // Animation
+        const duration = 1500; // 1.5 seconds
+        const startTime = Date.now();
+        
+        const animate = () => {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / duration, 1.0);
+            
+            // Animate each particle
+            particles.forEach(particle => {
+                // Move particle
+                particle.mesh.position.x += particle.velocity.x;
+                particle.mesh.position.y += particle.velocity.y;
+                particle.mesh.position.z += particle.velocity.z;
+                
+                // Slow down velocity over time
+                particle.velocity.x *= 0.98;
+                particle.velocity.y *= 0.98;
+                particle.velocity.z *= 0.98;
+                
+                // Fade out
+                if (particle.mesh.material) {
+                    particle.mesh.material.opacity = (0.8 - (progress * 0.8));
+                }
+            });
+            
+            // Continue animation
+            if (progress < 1.0) {
+                requestAnimationFrame(animate);
+            } else {
+                // Clean up
+                particles.forEach(particle => {
+                    this.scene.remove(particle.mesh);
+                    particle.mesh.geometry.dispose();
+                    particle.mesh.material.dispose();
+                });
+            }
+        };
+        
+        animate();
     }
     
     createPhaseTransitionEffect() {
@@ -1419,89 +1548,6 @@ export class HunterBoss extends BaseEnemy {
         }
     }
     
-    createSmokeEffect() {
-        // Create smoke cloud effect
-        const position = this.mesh.position.clone();
-        position.y = 0.5; // Just above ground
-        
-        // Create smoke particles
-        const particleCount = 50;
-        const particles = [];
-        
-        for (let i = 0; i < particleCount; i++) {
-            const size = 0.2 + Math.random() * 0.4;
-            const geometry = new THREE.SphereGeometry(size, 8, 8);
-            const material = new THREE.MeshBasicMaterial({ 
-                color: 0xaaffee,
-                transparent: true,
-                opacity: 0.5 + Math.random() * 0.3
-            });
-            
-            const particle = new THREE.Mesh(geometry, material);
-            
-            // Random position within circle
-            const angle = Math.random() * Math.PI * 2;
-            const radius = Math.random() * this.size * 2;
-            particle.position.set(
-                position.x + Math.cos(angle) * radius,
-                position.y + Math.random() * this.size * 2,
-                position.z + Math.sin(angle) * radius
-            );
-            
-            // Random velocity for expansion
-            const speed = 0.01 + Math.random() * 0.02;
-            const velocity = {
-                x: Math.cos(angle) * speed,
-                y: 0.01 + Math.random() * 0.02,
-                z: Math.sin(angle) * speed
-            };
-            
-            this.scene.add(particle);
-            particles.push({ mesh: particle, velocity: velocity });
-        }
-        
-        // Animation
-        const duration = 1500; // 1.5 seconds
-        const startTime = Date.now();
-        
-        const animate = () => {
-            const elapsed = Date.now() - startTime;
-            const progress = Math.min(elapsed / duration, 1.0);
-            
-            // Animate each particle
-            particles.forEach(particle => {
-                // Move particle
-                particle.mesh.position.x += particle.velocity.x;
-                particle.mesh.position.y += particle.velocity.y;
-                particle.mesh.position.z += particle.velocity.z;
-                
-                // Slow down velocity over time
-                particle.velocity.x *= 0.98;
-                particle.velocity.y *= 0.98;
-                particle.velocity.z *= 0.98;
-                
-                // Fade out
-                if (particle.mesh.material) {
-                    particle.mesh.material.opacity = (0.8 - (progress * 0.8));
-                }
-            });
-            
-            // Continue animation
-            if (progress < 1.0) {
-                requestAnimationFrame(animate);
-            } else {
-                // Clean up
-                particles.forEach(particle => {
-                    this.scene.remove(particle.mesh);
-                    particle.mesh.geometry.dispose();
-                    particle.mesh.material.dispose();
-                });
-            }
-        };
-        
-        animate();
-    }
-    
     // Override die method to clean up properly
     die() {
         try {
@@ -1679,22 +1725,19 @@ export class HunterBoss extends BaseEnemy {
         return this.size * 0.8; // Use hunter size for collision radius
     }
     
-    // Override reset method to handle health bar properly
-    reset(position, powerScaling = 1.0) {
-        // Call base class reset method
-        super.reset(position, powerScaling);
+    // Override reset method to handle boss reuse from pool
+    reset(position, bossLevel = 1) {
+        // Store the new boss level
+        this.bossLevel = bossLevel;
         
-        // Ensure the correct health calculations based on boss level
-        this.maxHealth = 120 * this.bossLevel;
+        // Reset health and stats based on level
+        this.maxHealth = 120 * bossLevel;
         this.health = this.maxHealth;
-        this.damage = 12 + (5 * this.bossLevel);
+        this.damage = 12 + (5 * bossLevel);
+        this.experienceValue = 500 * bossLevel;
         
-        // Ensure the health bar is correctly positioned with the 3D model
-        if (this.model && this.healthBarBg) {
-            this.healthBarBg.position.y = 4.0 + (this.bossLevel * 0.5);
-        }
-        
-        // Reset all boss-specific properties
+        // Reset state flags
+        this.isAlive = true;
         this.isDashing = false;
         this.dashTarget = null;
         this.dashHitPlayers.clear();
@@ -1704,16 +1747,73 @@ export class HunterBoss extends BaseEnemy {
         this.currentPhase = 0;
         
         // Clear projectiles
-        this.projectiles.forEach(projectile => {
-            if (projectile && projectile.deactivate) {
-                projectile.deactivate();
+        if (this.projectiles && this.projectiles.length > 0) {
+            this.projectiles.forEach(projectile => {
+                if (projectile && projectile.isActive) {
+                    projectile.deactivate();
+                }
+            });
+            this.projectiles = [];
+        }
+        
+        // Reset size based on level
+        this.size = 1.0 + (bossLevel * 0.1);
+        
+        // Check if mesh exists, if not create it
+        if (!this.mesh) {
+            console.log(`Mesh was null, creating enemy mesh for HunterBoss at position ${position.x}, ${position.y}, ${position.z}`);
+            this.createEnemyMesh(position);
+            
+            // After creating mesh, update health bar
+            if (this.healthBarBg) {
+                this.healthBarBg.position.y = 4.0 + (bossLevel * 0.5);
             }
-        });
-        this.projectiles = [];
+            this.updateHealthBar();
+            
+            // Play entrance animation (will check for mesh existence internally)
+            this.playEntranceAnimation();
+        } else {
+            // Reset mesh position and visibility
+            this.mesh.position.copy(position);
+            this.mesh.position.y = 0; // Hunter is at ground level
+            this.mesh.visible = true;
+            
+            // Make model visible
+            if (this.model) {
+                this.model.visible = true;
+                
+                // Apply proper scale for current level
+                const modelScale = 2.5 + (bossLevel * 0.3);
+                this.model.scale.set(modelScale, modelScale, modelScale);
+                
+                // Ensure all mesh parts are visible
+                this.model.traverse(child => {
+                    if (child.isMesh) {
+                        child.visible = true;
+                        // Reset material color/opacity if needed
+                        if (child.material) {
+                            child.material.opacity = 1;
+                            child.material.transparent = false;
+                            
+                            // Reset color if we have stored original colors
+                            if (this._originalMaterials && this._originalMaterials.has(child)) {
+                                child.material.color.copy(this._originalMaterials.get(child));
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // Reset health bar
+            if (this.healthBarBg) {
+                this.healthBarBg.position.y = 4.0 + (bossLevel * 0.5);
+            }
+            this.updateHealthBar();
+            
+            // Add dramatic entrance effect
+            this.playEntranceAnimation();
+        }
         
-        // Add dramatic entrance effect
-        this.playEntranceAnimation();
-        
-        return this;
+        console.log(`Reset Hunter boss to level ${bossLevel} at position ${position.x}, ${position.y}, ${position.z}`);
     }
 } 

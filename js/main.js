@@ -10,6 +10,7 @@ import { SkillSystem } from './skillSystem.js';
 import { MenuUI } from './menuUI.js';
 import { Projectile } from './projectile.js';
 import { HamsterCage } from './hamsterCage.js';
+import { EnemyPreloader } from './enemyPreloader.js';
 
 // Game class to handle core functionality
 class Game {
@@ -205,10 +206,6 @@ class Game {
         
         // Set up wave manager - pass this (the game instance) as third argument
         this.waveManager = new WaveManager(this.scene, this.player, this);
-        this.waveManager.initialize();
-        
-        // Store reference to waveManager in scene for components to access
-        this.scene.waveManager = this.waveManager;
         
         // Set up UI
         this.ui = new UI(this.player);
@@ -216,11 +213,93 @@ class Game {
         // Set up skill system
         this.skillSystem = new SkillSystem(this.player, this);
         
+        // Use the enemy preloader before initializing the wave manager
+        this.initializeGameWithPreloader();
+        
         // Add debugging hooks for boss waves
         this.setupBossWaveDebugging();
         
         // Set up event listeners
         this.setupEventListeners();
+    }
+    
+    initializeGameWithPreloader() {
+        console.log("Starting enemy preloading process...");
+        
+        // Create preloader
+        const preloader = new EnemyPreloader(this.scene, this.player);
+        
+        // Preload enemies and initialize wave manager when done
+        preloader.preloadEnemies().then(() => {
+            console.log("Enemy preloading complete - initializing wave manager");
+            
+            // Now that enemies are preloaded, initialize the wave manager
+            this.waveManager.initialize();
+            
+            // Store reference to waveManager in scene for components to access
+            this.scene.waveManager = this.waveManager;
+            
+            // Show a message to press space to start
+            this.showStartGameMessage();
+        });
+    }
+    
+    showStartGameMessage() {
+        const message = document.createElement('div');
+        message.textContent = "PRESS SPACE TO BEGIN";
+        message.style.position = 'absolute';
+        message.style.top = '50%';
+        message.style.left = '50%';
+        message.style.transform = 'translate(-50%, -50%)';
+        message.style.color = 'var(--light-brown)';
+        message.style.fontFamily = '"Exo 2", sans-serif';
+        message.style.fontSize = '36px';
+        message.style.fontWeight = 'bold';
+        message.style.textShadow = '0 0 10px rgba(212, 188, 145, 0.7)';
+        message.style.backgroundColor = 'var(--panel-bg)';
+        message.style.backdropFilter = 'blur(4px)';
+        message.style.borderRadius = '16px';
+        message.style.boxShadow = 'var(--shadow)';
+        message.style.border = '1px solid rgba(255, 255, 255, 0.18)';
+        message.style.padding = '20px 40px';
+        message.style.zIndex = '1000';
+        message.style.opacity = '1';
+        message.style.transition = 'opacity 1s';
+        
+        // Add pulsing animation
+        message.animate(
+            [
+                { opacity: 1, transform: 'translate(-50%, -50%) scale(1)' },
+                { opacity: 0.8, transform: 'translate(-50%, -50%) scale(1.05)' },
+                { opacity: 1, transform: 'translate(-50%, -50%) scale(1)' }
+            ],
+            {
+                duration: 1500,
+                iterations: Infinity
+            }
+        );
+        
+        document.body.appendChild(message);
+        
+        // Remove when game starts - uses the WaveManager's own start mechanism
+        // so we don't need a separate spacebar handler
+        const checkWaveActive = () => {
+            if (this.waveManager.waveActive) {
+                // Wave has started, remove the message
+                message.style.opacity = '0';
+                setTimeout(() => {
+                    if (message.parentNode) {
+                        document.body.removeChild(message);
+                    }
+                }, 1000);
+                
+                // Stop checking
+                clearInterval(checkInterval);
+            }
+        };
+        
+        // Check periodically if wave has started
+        const checkInterval = setInterval(checkWaveActive, 100);
     }
     
     setupBossWaveDebugging() {

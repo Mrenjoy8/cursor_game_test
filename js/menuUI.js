@@ -1,5 +1,15 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.module.js';
 
+/**
+ * MenuUI class manages the game's menu screens.
+ * 
+ * Enemy Wiki Images:
+ * - Enemy icons can display images by adding an 'image' property to enemy objects
+ * - Image paths should be relative to the root directory
+ * - Place enemy images in 'assets/enemies/' directory
+ * - Place boss images in 'assets/bosses/' directory
+ * - If an image fails to load, the fallback color will be displayed
+ */
 export class MenuUI {
     constructor(startGameCallback) {
         this.startGameCallback = startGameCallback;
@@ -349,25 +359,29 @@ export class MenuUI {
                 name: 'Basic Enemy',
                 color: 'var(--pink)',
                 shape: 'Cone',
-                description: 'Standard enemy with balanced stats. Approaches the player and attacks at close range.'
+                description: 'Standard enemy with balanced stats. Approaches the player and attacks at close range.',
+                image: 'assets/enemies/basic_enemy.png'
             },
             {
                 name: 'Fast Enemy',
                 color: 'var(--light-green)',
                 shape: 'Cube',
-                description: 'Quick but fragile. Moves twice as fast as basic enemies and attacks more frequently.'
+                description: 'Quick but fragile. Moves twice as fast as basic enemies and attacks more frequently.',
+                image: 'assets/enemies/fast_enemy.png'
             },
             {
                 name: 'Tanky Enemy',
                 color: 'var(--primary-green)',
                 shape: 'Cylinder',
-                description: 'Slow but powerful. Has high health and damage, but moves at half the speed of basic enemies.'
+                description: 'Slow but powerful. Has high health and damage, but moves at half the speed of basic enemies.',
+                image: 'assets/enemies/tanky_enemy.png'
             },
             {
                 name: 'Ranged Enemy',
                 color: 'var(--light-brown)',
                 shape: 'Sphere',
-                description: 'Attacks from a distance. Fires projectiles at the player and tries to maintain optimal range.'
+                description: 'Attacks from a distance. Fires projectiles at the player and tries to maintain optimal range.',
+                image: 'assets/enemies/ranged_enemy.png'
             }
         ];
         
@@ -401,19 +415,22 @@ export class MenuUI {
                 name: 'Titan',
                 color: 'var(--primary-green)',
                 shape: 'Large Humanoid',
-                description: 'Powerful melee boss with high health and armor. Special attacks include Ground Smash, Charge Attack, and Multi-Smash.'
+                description: 'Powerful melee boss with high health and armor. Special attacks include Ground Smash, Charge Attack, and Multi-Smash.',
+                image: 'assets/bosses/titan.png'
             },
             {
                 name: 'Sorcerer',
                 color: 'var(--pink)',
                 shape: 'Floating Entity',
-                description: 'Magic-focused boss that attacks with devastating spells. Can teleport and create magical barriers.'
+                description: 'Magic-focused boss that attacks with devastating spells. Can teleport and create magical barriers.',
+                image: 'assets/bosses/sorcerer.png'
             },
             {
                 name: 'Hunter',
                 color: 'var(--light-brown)',
                 shape: 'Agile Creature',
-                description: 'Fast-moving boss that combines melee and ranged attacks. Can perform quick dashes and fire volleys of projectiles.'
+                description: 'Fast-moving boss that combines melee and ranged attacks. Can perform quick dashes and fire volleys of projectiles.',
+                image: 'assets/bosses/hunter.png'
             }
         ];
         
@@ -457,12 +474,34 @@ export class MenuUI {
         const iconContainer = document.createElement('div');
         iconContainer.style.width = '60px';
         iconContainer.style.height = '60px';
-        iconContainer.style.backgroundColor = enemy.color;
+        iconContainer.style.backgroundColor = enemy.color; // Fallback background color
         iconContainer.style.borderRadius = '50%';
         iconContainer.style.margin = '0 auto 15px';
         iconContainer.style.display = 'flex';
         iconContainer.style.justifyContent = 'center';
         iconContainer.style.alignItems = 'center';
+        iconContainer.style.overflow = 'hidden'; // Ensure image stays within circle
+        
+        // If the enemy has an image property, try to load it
+        if (enemy.image) {
+            const enemyImage = new Image();
+            enemyImage.src = enemy.image;
+            enemyImage.style.width = '100%';
+            enemyImage.style.height = '100%';
+            enemyImage.style.objectFit = 'cover'; // Cover the circle
+            
+            // Handle successful image load
+            enemyImage.onload = () => {
+                iconContainer.appendChild(enemyImage);
+            };
+            
+            // Handle failed image load - fallback to color (already set as background)
+            enemyImage.onerror = (err) => {
+                console.warn(`Failed to load enemy image for ${enemy.name}`, err);
+                // Keep the fallback color that's already set
+            };
+        }
+        
         card.appendChild(iconContainer);
         
         const name = document.createElement('h4');

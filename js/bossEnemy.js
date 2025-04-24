@@ -262,7 +262,7 @@ export class BossEnemy extends BaseEnemy {
         animate();
     }
     
-    update(deltaTime) {
+    update(deltaTime, camera, enemies = []) {
         try {
             if (!this.isAlive || !this.mesh) return;
             
@@ -293,6 +293,7 @@ export class BossEnemy extends BaseEnemy {
                 
                 // Move towards player if not in attack range
                 if (distanceToPlayer > this.attackRange) {
+                    // Pass only the necessary parameters, no enemies array
                     this.moveTowardsPlayer(direction, distanceToPlayer, deltaTime);
                 } else {
                     // Attack player if close enough and cooldown has passed
@@ -967,6 +968,7 @@ export class BossEnemy extends BaseEnemy {
     
     // Override the collisionRadius getter for better player collision detection
     get collisionRadius() {
-        return this.size * 1.2; // Use boss size for collision radius
+        // Boss has a larger collision radius than regular enemies
+        return this.size * 1.2; // Use the boss size property as reference
     }
 } 

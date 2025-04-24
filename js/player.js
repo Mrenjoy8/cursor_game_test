@@ -124,7 +124,8 @@ export class Player {
                 }
             },
             (xhr) => {
-                console.log(`Loading player model: ${(xhr.loaded / xhr.total * 100)}% loaded`);
+                const progress = xhr.total ? Math.round((xhr.loaded / xhr.total) * 100) : 0;
+                console.log(`Loading player model: ${progress}% loaded`);
             },
             (error) => {
                 console.error('Error loading player model:', error);

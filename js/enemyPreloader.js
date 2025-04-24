@@ -13,10 +13,10 @@ export class EnemyPreloader {
         
         // Configuration for preloading
         this.preloadCounts = {
-            [EnemyType.BASIC]: 20,  // 20 basic enemies (most common in early waves)
-            [EnemyType.FAST]: 10,   // 10 fast enemies
-            [EnemyType.TANKY]: 10,  // 10 tanky enemies
-            [EnemyType.RANGED]: 10  // 10 ranged enemies
+            [EnemyType.BASIC]: 14,  // 14 basic enemies
+            [EnemyType.FAST]: 12,   // 12 fast enemies
+            [EnemyType.TANKY]: 12,  // 12 tanky enemies
+            [EnemyType.RANGED]: 12  // 12 ranged enemies
         };
         
         this.totalEnemies = Object.values(this.preloadCounts).reduce((a, b) => a + b, 0);

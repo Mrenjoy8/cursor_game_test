@@ -868,7 +868,8 @@ export class WaveManager {
                 const enemy = this.enemies[i];
                 
                 if (enemy.isAlive) {
-                    enemy.update(deltaTime, this.camera);
+                    // Pass the entire enemies array to each enemy for collision detection
+                    enemy.update(deltaTime, this.camera, this.enemies);
                 } else {
                     // Handle enemy death
                     // Check if it was a boss

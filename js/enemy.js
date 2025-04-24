@@ -220,6 +220,20 @@ export class BaseEnemy {
         this.minimumDistance = 1.5; // Minimum distance to maintain from player
         this.maxSpeedMultiplier = 1.0; // Cap on speed multiplier to prevent excessive speed
         
+        // Check if this object already has getter-only properties (like boss subclasses)
+        // before setting collision properties
+        const descriptor = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(this), 'collisionRadius');
+        const hasBossCollisionRadiusGetter = descriptor && descriptor.get && !descriptor.set;
+        
+        // Only set collision properties if this is not a boss with getter-only properties
+        if (!hasBossCollisionRadiusGetter) {
+            // Collision properties
+            this.collisionRadius = 1.0; // Default collision radius
+            this.avoidanceWeight = 0.5; // How strongly to avoid other enemies (0-1)
+            this.lastAvoidanceDirection = null; // Store last avoidance direction for smoothing
+            this.avoidanceSmoothingFactor = 0.8; // Smoothing factor for avoidance direction (0-1)
+        }
+        
         // Store the power scaling factor
         this.powerScaling = powerScaling;
         
@@ -484,7 +498,7 @@ export class BaseEnemy {
         return true;
     }
     
-    update(deltaTime, camera) {
+    update(deltaTime, camera, enemies = []) {
         if (!this.isAlive) return;
         
         // Update the health bar facing if we have a camera
@@ -531,7 +545,7 @@ export class BaseEnemy {
         
         // Move towards player if beyond minimum distance 
         if (distanceToPlayer > this.attackRange) {
-            this.moveTowardsPlayer(direction, distanceToPlayer, cappedDelta);
+            this.moveTowardsPlayer(direction, distanceToPlayer, cappedDelta, enemies);
             
             // Play run animation if available and not already playing
             if (this.mixer && this.animationActions['Run'] && 
@@ -541,7 +555,7 @@ export class BaseEnemy {
         } 
         // Move away from player if too close (less than minimum distance)
         else if (distanceToPlayer < this.minimumDistance) {
-            this.moveAwayFromPlayer(direction, distanceToPlayer, cappedDelta);
+            this.moveAwayFromPlayer(direction, distanceToPlayer, cappedDelta, enemies);
             
             // Play run animation if available and not already playing
             if (this.mixer && this.animationActions['Run'] && 
@@ -572,7 +586,7 @@ export class BaseEnemy {
         }
     }
     
-    moveTowardsPlayer(direction, distance, deltaTime) {
+    moveTowardsPlayer(direction, distance, deltaTime, enemies = []) {
         direction.normalize();
         
         // Apply speed cap based on distance to player (get slower when closer)
@@ -583,26 +597,69 @@ export class BaseEnemy {
         
         // Calculate final movement speed
         const finalMoveSpeed = this.moveSpeed * speedMultiplier;
-        const finalMoveX = direction.x * finalMoveSpeed * deltaTime;
-        const finalMoveZ = direction.z * finalMoveSpeed * deltaTime;
         
-        // Log movement data
-        // console.log(`Enemy ${this.type} - Delta: ${deltaTime.toFixed(2)}, Speed: ${finalMoveSpeed.toFixed(4)}, Movement: (${finalMoveX.toFixed(4)}, ${finalMoveZ.toFixed(4)})`);
+        // Apply collision avoidance with other enemies if method is available
+        const avoidanceDirection = this.checkEnemyCollisions ? this.checkEnemyCollisions(enemies) : null;
         
-        // Move towards player
-        this.mesh.position.x += finalMoveX;
-        this.mesh.position.z += finalMoveZ;
-        
-        // Face the direction of movement
-        this.faceDirection(direction);
+        // Combine player-seeking direction with avoidance direction
+        if (avoidanceDirection) {
+            // Blend player direction with avoidance direction
+            const combinedDirection = new THREE.Vector3()
+                .addVectors(
+                    direction.clone().multiplyScalar(1 - this.avoidanceWeight),
+                    avoidanceDirection.clone().multiplyScalar(this.avoidanceWeight)
+                )
+                .normalize();
+            
+            // Apply movement
+            const finalMoveX = combinedDirection.x * finalMoveSpeed * deltaTime;
+            const finalMoveZ = combinedDirection.z * finalMoveSpeed * deltaTime;
+            
+            this.mesh.position.x += finalMoveX;
+            this.mesh.position.z += finalMoveZ;
+            
+            // Face original player direction - enemies should still face the player
+            this.faceDirection(direction);
+        } else {
+            // No collision, move directly towards player
+            const finalMoveX = direction.x * finalMoveSpeed * deltaTime;
+            const finalMoveZ = direction.z * finalMoveSpeed * deltaTime;
+            
+            this.mesh.position.x += finalMoveX;
+            this.mesh.position.z += finalMoveZ;
+            
+            // Face the direction of movement
+            this.faceDirection(direction);
+        }
     }
     
-    moveAwayFromPlayer(direction, distance, deltaTime) {
+    moveAwayFromPlayer(direction, distance, deltaTime, enemies = []) {
         direction.normalize();
         
-        // Move away from player
-        this.mesh.position.x -= direction.x * this.moveSpeed * deltaTime;
-        this.mesh.position.z -= direction.z * this.moveSpeed * deltaTime;
+        // Apply collision avoidance with other enemies if method is available
+        const avoidanceDirection = this.checkEnemyCollisions ? this.checkEnemyCollisions(enemies) : null;
+        
+        if (avoidanceDirection) {
+            // Blend retreat direction with avoidance direction
+            const retreatDirection = direction.clone().negate();
+            const combinedDirection = new THREE.Vector3()
+                .addVectors(
+                    retreatDirection.clone().multiplyScalar(1 - this.avoidanceWeight),
+                    avoidanceDirection.clone().multiplyScalar(this.avoidanceWeight)
+                )
+                .normalize();
+            
+            // Apply movement
+            const finalMoveX = combinedDirection.x * this.moveSpeed * deltaTime;
+            const finalMoveZ = combinedDirection.z * this.moveSpeed * deltaTime;
+            
+            this.mesh.position.x += finalMoveX;
+            this.mesh.position.z += finalMoveZ;
+        } else {
+            // No collision, move directly away from player
+            this.mesh.position.x -= direction.x * this.moveSpeed * deltaTime;
+            this.mesh.position.z -= direction.z * this.moveSpeed * deltaTime;
+        }
         
         // Face the player even when moving away (enemies always face the player)
         this.faceDirection(direction);
@@ -861,6 +918,89 @@ export class BaseEnemy {
             }
         });
     }
+    
+    // Check for collisions with other enemies and return an avoidance direction
+    checkEnemyCollisions(enemies) {
+        // If we don't have collision properties, return null
+        if (this.collisionRadius === undefined) return null;
+        
+        if (!enemies || enemies.length === 0) return null;
+        
+        // Use this to track total avoidance vector
+        const avoidanceDirection = new THREE.Vector3(0, 0, 0);
+        let collisionDetected = false;
+        
+        // Get my position
+        const myPosition = this.getPosition();
+        
+        // Check collisions with all other enemies
+        for (const enemy of enemies) {
+            // Skip self, dead enemies, or enemies without collision properties
+            if (enemy === this || !enemy.isAlive || enemy.collisionRadius === undefined) continue;
+            
+            // Get enemy position
+            const enemyPosition = enemy.getPosition();
+            
+            // Calculate distance (squared for performance)
+            const offsetX = myPosition.x - enemyPosition.x;
+            const offsetZ = myPosition.z - enemyPosition.z;
+            const distanceSquared = offsetX * offsetX + offsetZ * offsetZ;
+            
+            // Get combined collision radius (adjusted based on enemy type)
+            let combinedRadius = this.collisionRadius + enemy.collisionRadius;
+            
+            // Check for collision (using squared values for better performance)
+            if (distanceSquared < combinedRadius * combinedRadius) {
+                collisionDetected = true;
+                
+                // Calculate avoidance vector (direction to move away)
+                let strength = 1.0 - (Math.sqrt(distanceSquared) / combinedRadius);
+                
+                // Scale based on type of enemy
+                if (enemy.type === EnemyType.TANKY) {
+                    // Give more space to tanky enemies (they're bigger)
+                    strength *= 1.5;
+                } else if (enemy.type === EnemyType.FAST) {
+                    // Less space for fast enemies (they'll move away quickly)
+                    strength *= 0.8;
+                }
+                
+                // Create normalized direction vector away from the other enemy
+                const avoidanceVector = new THREE.Vector3(offsetX, 0, offsetZ).normalize();
+                
+                // Scale by collision strength
+                avoidanceVector.multiplyScalar(strength);
+                
+                // Add to total avoidance direction
+                avoidanceDirection.add(avoidanceVector);
+            }
+        }
+        
+        // If no collisions detected, return null
+        if (!collisionDetected) {
+            this.lastAvoidanceDirection = null;
+            return null;
+        }
+        
+        // Normalize the final avoidance direction
+        if (avoidanceDirection.length() > 0) {
+            avoidanceDirection.normalize();
+            
+            // Apply smoothing if we have a previous avoidance direction
+            if (this.lastAvoidanceDirection) {
+                // Lerp between old and new direction for smoother transitions
+                avoidanceDirection.lerp(
+                    this.lastAvoidanceDirection,
+                    this.avoidanceSmoothingFactor
+                );
+            }
+            
+            // Store current direction for next frame
+            this.lastAvoidanceDirection = avoidanceDirection.clone();
+        }
+        
+        return avoidanceDirection;
+    }
 }
 
 // Basic Enemy - The original enemy type (red cone)
@@ -886,6 +1026,10 @@ export class BasicEnemy extends BaseEnemy {
         this.defaultColor = 0xff0000; // Red
         this.minimumDistance = 1.8; // Greater minimum distance for cone enemies
         this.maxSpeedMultiplier = 0.9; // Limit max speed a bit more than base
+        
+        // Collision properties
+        this.collisionRadius = 1.0; // Standard collision radius
+        this.avoidanceWeight = 0.5; // Medium avoidance weight
         
         // Create mesh if not created by base class
         if (!this.mesh && position) {
@@ -991,7 +1135,8 @@ export class BasicEnemy extends BaseEnemy {
                 }
             },
             (xhr) => {
-                console.log(`Loading basic enemy model: ${(xhr.loaded / xhr.total * 100)}% loaded`);
+                const progress = xhr.total ? Math.round((xhr.loaded / xhr.total) * 100) : 0;
+                console.log(`Loading basic enemy model: ${progress}% loaded`);
             },
             (error) => {
                 console.error('Error loading basic enemy model:', error);
@@ -1026,6 +1171,11 @@ export class FastEnemy extends BaseEnemy {
         this.defaultColor = 0x3498db; // Blue
         this.minimumDistance = 2.0; // Greater minimum distance for fast enemies
         this.maxSpeedMultiplier = 0.85; // More limitation on max speed
+        
+        // Collision properties - fast enemies have smaller collision radius and care less about collisions
+        this.collisionRadius = 0.8; // Smaller collision radius
+        this.avoidanceWeight = 0.3; // Lower avoidance weight - they care less about collisions
+        this.avoidanceSmoothingFactor = 0.6; // Less smoothing for more agile movement
         
         // Create mesh if not created by base class
         if (!this.mesh && position) {
@@ -1130,7 +1280,8 @@ export class FastEnemy extends BaseEnemy {
                 }
             },
             (xhr) => {
-                console.log(`Loading fast enemy model: ${(xhr.loaded / xhr.total * 100)}% loaded`);
+                const progress = xhr.total ? Math.round((xhr.loaded / xhr.total) * 100) : 0;
+                console.log(`Loading fast enemy model: ${progress}% loaded`);
             },
             (error) => {
                 console.error('Error loading fast enemy model:', error);
@@ -1167,6 +1318,11 @@ export class TankyEnemy extends BaseEnemy {
         this.attackRange = this.baseAttackRange;
         this.type = EnemyType.TANKY;
         this.defaultColor = 0x2ecc71; // Green
+        
+        // Collision properties - tanky enemies have larger collision radius and care less about collisions
+        this.collisionRadius = 1.5; // Larger collision radius to account for their size
+        this.avoidanceWeight = 0.2; // Lower avoidance weight - they push through crowds
+        this.avoidanceSmoothingFactor = 0.9; // Higher smoothing for more inertial movement
         
         // Create mesh if not created by base class
         if (!this.mesh && position) {
@@ -1271,7 +1427,8 @@ export class TankyEnemy extends BaseEnemy {
                 }
             },
             (xhr) => {
-                console.log(`Loading tanky enemy model: ${(xhr.loaded / xhr.total * 100)}% loaded`);
+                const progress = xhr.total ? Math.round((xhr.loaded / xhr.total) * 100) : 0;
+                console.log(`Loading tanky enemy model: ${progress}% loaded`);
             },
             (error) => {
                 console.error('Error loading tanky enemy model:', error);
@@ -1311,6 +1468,11 @@ export class RangedEnemy extends BaseEnemy {
         this.type = EnemyType.RANGED;
         this.defaultColor = 0x9b59b6; // Purple
         this.projectiles = [];
+        
+        // Collision properties - ranged enemies strongly avoid collisions to maintain distance
+        this.collisionRadius = 0.9; // Standard collision radius
+        this.avoidanceWeight = 0.7; // Higher avoidance weight - they really want to keep distance
+        this.avoidanceSmoothingFactor = 0.7; // Moderate smoothing
         
         // Create mesh if not created by base class
         if (!this.mesh && position) {
@@ -1415,7 +1577,8 @@ export class RangedEnemy extends BaseEnemy {
                 }
             },
             (xhr) => {
-                console.log(`Loading ranged enemy model: ${(xhr.loaded / xhr.total * 100)}% loaded`);
+                const progress = xhr.total ? Math.round((xhr.loaded / xhr.total) * 100) : 0;
+                console.log(`Loading ranged enemy model: ${progress}% loaded`);
             },
             (error) => {
                 console.error('Error loading ranged enemy model:', error);
@@ -1428,7 +1591,7 @@ export class RangedEnemy extends BaseEnemy {
         // No rotation correction needed for sphere
     }
     
-    update(deltaTime, camera) {
+    update(deltaTime, camera, enemies = []) {
         if (!this.isAlive) return;
         
         // Update the health bar facing if we have a camera
@@ -1473,11 +1636,37 @@ export class RangedEnemy extends BaseEnemy {
         // Calculate distance to player
         const distanceToPlayer = direction.length();
         
+        // Cap deltaTime to prevent large jumps
+        const cappedDelta = Math.min(deltaTime, 100);
+        
         // If too close, move away
         if (distanceToPlayer < this.preferredDistance) {
             direction.normalize();
-            this.mesh.position.x -= direction.x * this.moveSpeed * deltaTime;
-            this.mesh.position.z -= direction.z * this.moveSpeed * deltaTime;
+            
+            // Apply collision avoidance
+            const avoidanceDirection = this.checkEnemyCollisions ? this.checkEnemyCollisions(enemies) : null;
+            
+            if (avoidanceDirection) {
+                // Blend retreat direction with avoidance direction
+                const retreatDirection = direction.clone().negate();
+                const combinedDirection = new THREE.Vector3()
+                    .addVectors(
+                        retreatDirection.clone().multiplyScalar(1 - this.avoidanceWeight),
+                        avoidanceDirection.clone().multiplyScalar(this.avoidanceWeight)
+                    )
+                    .normalize();
+                
+                // Apply movement
+                const moveAmount = this.moveSpeed * cappedDelta;
+                this.mesh.position.x += combinedDirection.x * moveAmount;
+                this.mesh.position.z += combinedDirection.z * moveAmount;
+            } else {
+                // No collision, move directly away from player
+                const moveAmount = this.moveSpeed * cappedDelta;
+                this.mesh.position.x -= direction.x * moveAmount;
+                this.mesh.position.z -= direction.z * moveAmount;
+            }
+            
             this.faceDirection(direction);
             
             // Play run animation if available and not already playing
@@ -1489,8 +1678,30 @@ export class RangedEnemy extends BaseEnemy {
         // If too far, move closer
         else if (distanceToPlayer > this.attackRange) {
             direction.normalize();
-            this.mesh.position.x += direction.x * this.moveSpeed * deltaTime;
-            this.mesh.position.z += direction.z * this.moveSpeed * deltaTime;
+            
+            // Apply collision avoidance
+            const avoidanceDirection = this.checkEnemyCollisions ? this.checkEnemyCollisions(enemies) : null;
+            
+            if (avoidanceDirection) {
+                // Blend approach direction with avoidance direction
+                const combinedDirection = new THREE.Vector3()
+                    .addVectors(
+                        direction.clone().multiplyScalar(1 - this.avoidanceWeight),
+                        avoidanceDirection.clone().multiplyScalar(this.avoidanceWeight)
+                    )
+                    .normalize();
+                
+                // Apply movement
+                const moveAmount = this.moveSpeed * cappedDelta;
+                this.mesh.position.x += combinedDirection.x * moveAmount;
+                this.mesh.position.z += combinedDirection.z * moveAmount;
+            } else {
+                // No collision, move directly toward player
+                const moveAmount = this.moveSpeed * cappedDelta;
+                this.mesh.position.x += direction.x * moveAmount;
+                this.mesh.position.z += direction.z * moveAmount;
+            }
+            
             this.faceDirection(direction);
             
             // Play run animation if available and not already playing

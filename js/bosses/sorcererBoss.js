@@ -135,7 +135,7 @@ export class SorcererBoss extends BaseEnemy {
             loader.load(
                 modelURL,
                 (gltf) => {
-                    console.log('Sorcerer boss model loaded successfully');
+//                    console.log('Sorcerer boss model loaded successfully');
                     
                     // Find and remove the placeholder by name
                     const placeholderObj = this.mesh.getObjectByName("placeholder");
@@ -212,7 +212,7 @@ export class SorcererBoss extends BaseEnemy {
                         // Store all animations
                         gltf.animations.forEach((clip) => {
                             this.animationActions[clip.name] = this.mixer.clipAction(clip);
-                            console.log(`Loaded animation: ${clip.name}`);
+//                            console.log(`Loaded animation: ${clip.name}`);
                         });
                         
                         // Start the run animation by default
@@ -224,10 +224,10 @@ export class SorcererBoss extends BaseEnemy {
                     // Create floating particles around the sorcerer model
                     this.createFloatingParticles();
                     
-                    console.log("Sorcerer boss 3D model setup complete");
+//                    console.log("Sorcerer boss 3D model setup complete");
                 },
                 (xhr) => {
-                    console.log(`Loading sorcerer boss model: ${(xhr.loaded / xhr.total * 100)}% loaded`);
+//                    console.log(`Loading sorcerer boss model: ${(xhr.loaded / xhr.total * 100)}% loaded`);
                 },
                 (error) => {
                     console.error('Error loading sorcerer boss model:', error);
@@ -236,7 +236,7 @@ export class SorcererBoss extends BaseEnemy {
                 }
             );
             
-            console.log("Sorcerer boss mesh creation initiated");
+//            console.log("Sorcerer boss mesh creation initiated");
         } catch (error) {
             console.error("Error creating Sorcerer boss mesh:", error);
             // Attempt to create traditional visuals
@@ -246,7 +246,7 @@ export class SorcererBoss extends BaseEnemy {
     
     createTraditionalVisuals() {
         // This function creates the original visual style if model loading fails
-        console.log("Creating traditional sorcerer visuals as fallback");
+//        console.log("Creating traditional sorcerer visuals as fallback");
         
         // Clear any existing children
         while(this.mesh.children.length > 0) {
@@ -735,7 +735,7 @@ export class SorcererBoss extends BaseEnemy {
                         const distance = projectile.mesh.position.distanceTo(playerPos);
                         
                         if (distance < (projectile.size + 0.5)) {
-                            console.log(`Sorcerer projectile hit player for ${projectile.damage} damage`);
+//                            console.log(`Sorcerer projectile hit player for ${projectile.damage} damage`);
                             this.player.takeDamage(projectile.damage);
                             projectile.deactivate();
                         }
@@ -756,7 +756,7 @@ export class SorcererBoss extends BaseEnemy {
             // Multiple magic missiles attack
             if (!this.isAlive) return;
             
-            console.log("Sorcerer casting magic missiles");
+//            console.log("Sorcerer casting magic missiles");
             
             // Play attack animation if available
             if (this.mixer && this.animationActions['Attack']) {
@@ -815,7 +815,7 @@ export class SorcererBoss extends BaseEnemy {
                 }, i * 100); // Stagger the missiles
             }
         } catch (error) {
-            console.error("Error in Sorcerer magicMissiles:", error);
+//            console.error("Error in Sorcerer magicMissiles:", error);
         }
     }
     
@@ -824,7 +824,7 @@ export class SorcererBoss extends BaseEnemy {
             // Large AoE blast attack
             if (!this.isAlive) return;
             
-            console.log("Sorcerer charging arcane blast");
+//            console.log("Sorcerer charging arcane blast");
             
             // Play special attack animation if available
             if (this.mixer && this.animationActions['Special']) {
@@ -907,7 +907,7 @@ export class SorcererBoss extends BaseEnemy {
     releaseArcaneBlast(chargeEffect) {
         try {
             // Get position for blast (centered on player if possible)
-            console.log("Sorcerer releasing arcane blast");
+//            console.log("Sorcerer releasing arcane blast");
             
             // Determine blast origin position (boss position by default)
             const blastPosition = this.mesh.position.clone();
@@ -996,7 +996,7 @@ export class SorcererBoss extends BaseEnemy {
                         this.player.takeDamage(damage);
                         
                         // Log the hit
-                        console.log(`Arcane blast hit player for ${damage.toFixed(1)} damage (${(damageMultiplier * 100).toFixed(0)}% power)`);
+//                        console.log(`Arcane blast hit player for ${damage.toFixed(1)} damage (${(damageMultiplier * 100).toFixed(0)}% power)`);
                         
                         // Mark as hit so we don't hit again with this blast
                         hasHitPlayer = true;
@@ -1105,7 +1105,7 @@ export class SorcererBoss extends BaseEnemy {
     
     playEntranceAnimation() {
         try {
-            console.log("Sorcerer boss dramatic entrance");
+//            console.log("Sorcerer boss dramatic entrance");
             
             // Make boss initially invisible
             if (this.mesh) this.mesh.visible = false;
@@ -1640,16 +1640,16 @@ export class SorcererBoss extends BaseEnemy {
             if (distanceToPlayer >= 10) {
                 // Player is far away (10 or more distance) - use magic missiles
                 attackPattern = this.magicMissiles.bind(this);
-                console.log("Sorcerer using magic missiles based on distance");
+//                console.log("Sorcerer using magic missiles based on distance");
             } else {
                 // Player is close (less than 10 distance) - use arcane blast
                 attackPattern = this.arcaneBlast.bind(this);
-                console.log("Sorcerer using arcane blast based on distance");
+//                console.log("Sorcerer using arcane blast based on distance");
             }
             
             // Execute the selected attack pattern
             if (attackPattern) {
-                console.log(`Sorcerer performing special attack: ${attackPattern.name}`);
+//                console.log(`Sorcerer performing special attack: ${attackPattern.name}`);
                 attackPattern();
             }
         } catch (error) {
@@ -1659,7 +1659,7 @@ export class SorcererBoss extends BaseEnemy {
     
     enterNewPhase() {
         try {
-            console.log(`Sorcerer entering phase ${this.currentPhase}`);
+//            console.log(`Sorcerer entering phase ${this.currentPhase}`);
             
             // Create a phase transition effect
             this.createPhaseTransitionEffect();
@@ -1736,7 +1736,7 @@ export class SorcererBoss extends BaseEnemy {
             
             // Check if mesh exists, if not create it
             if (!this.mesh) {
-                console.log("Mesh was null, creating enemy mesh for SorcererBoss");
+//                console.log("Mesh was null, creating enemy mesh for SorcererBoss");
                 this.createEnemyMesh(position);
             } else {
                 // Reset mesh position
@@ -1774,7 +1774,7 @@ export class SorcererBoss extends BaseEnemy {
             // Play entrance animation
             this.playEntranceAnimation();
             
-            console.log(`Reset Sorcerer boss to level ${bossLevel} at position ${position.x}, ${position.y}, ${position.z}`);
+//            console.log(`Reset Sorcerer boss to level ${bossLevel} at position ${position.x}, ${position.y}, ${position.z}`);
         } catch (error) {
             console.error("Error resetting SorcererBoss:", error);
             

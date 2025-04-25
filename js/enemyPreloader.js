@@ -117,8 +117,8 @@ export class EnemyPreloader {
      * @param {function} resolveCallback - Function to call when preloading is complete
      */
     startPreloading(resolveCallback) {
-        console.log("Starting enemy preloader...");
-        console.time("Enemy Preloading");
+//        console.log("Starting enemy preloader...");
+//        console.time("Enemy Preloading");
         
         // Update the loading text to be more informative
         this.loadingText.textContent = 'PREPARING BATTLE...';
@@ -127,7 +127,7 @@ export class EnemyPreloader {
         // Start with a batch of basic enemies - these will be visible in the first wave
         this.preloadBatch(EnemyType.BASIC, 5, () => {
             // Add a confirmation message that first batch is ready
-            console.log("Initial batch of basic enemies loaded successfully!");
+//            console.log("Initial batch of basic enemies loaded successfully!");
             
             // Update loading text to show progress
             this.loadingText.textContent = 'PREPARING ADDITIONAL ENEMIES...';
@@ -157,8 +157,16 @@ export class EnemyPreloader {
             // Check if we've finished all types
             if (currentTypeIndex >= enemyTypes.length) {
                 // All done!
-                console.timeEnd("Enemy Preloading");
-                console.log(`Successfully preloaded ${this.preloadedCount} enemies`);
+//                console.timeEnd("Enemy Preloading");
+//                console.log(`Successfully preloaded ${this.preloadedCount} enemies`);
+                
+                // Log the current state of the enemy pool
+                console.log("Enemy pool status:", {
+                    basic: enemyPool.pools[EnemyType.BASIC].length,
+                    fast: enemyPool.pools[EnemyType.FAST].length,
+                    tanky: enemyPool.pools[EnemyType.TANKY].length,
+                    ranged: enemyPool.pools[EnemyType.RANGED].length
+                });
                 
                 // Remove loading indicator
                 document.body.removeChild(this.loadingContainer);
@@ -184,7 +192,7 @@ export class EnemyPreloader {
             // Calculate how many to preload in this batch
             const batchPreloadCount = Math.min(batchSize, targetCount - preloadedForCurrentType);
             
-            console.log(`Processing batch of ${batchPreloadCount} ${currentType} enemies (${preloadedForCurrentType+1}-${preloadedForCurrentType+batchPreloadCount} of ${targetCount})`);
+//            console.log(`Processing batch of ${batchPreloadCount} ${currentType} enemies (${preloadedForCurrentType+1}-${preloadedForCurrentType+batchPreloadCount} of ${targetCount})`);
             
             // Preload a batch of the current type and wait for completion
             this.preloadBatch(currentType, batchPreloadCount, () => {
@@ -207,7 +215,7 @@ export class EnemyPreloader {
      * @param {function} callback - Function to call when batch is complete
      */
     preloadBatch(type, count, callback) {
-        console.log(`Preloading ${count} ${type} enemies...`);
+//        console.log(`Preloading ${count} ${type} enemies...`);
         
         // Keep track of pending enemy loads
         let pendingLoads = count;
@@ -221,7 +229,7 @@ export class EnemyPreloader {
             
             // When all loads in the batch are complete, call the callback
             if (pendingLoads === 0) {
-                console.log(`Batch of ${count} ${type} enemies successfully preloaded`);
+//                console.log(`Batch of ${count} ${type} enemies successfully preloaded`);
                 setTimeout(callback, 50); // Add a delay to allow UI updates
             }
         };
@@ -248,7 +256,7 @@ export class EnemyPreloader {
         const usesModel = true; // All enemy types in our game use models
         
         if (usesModel) {
-            console.log(`[Preload ${preloadId}] Waiting for ${type} enemy model to load...`);
+//            console.log(`[Preload ${preloadId}] Waiting for ${type} enemy model to load...`);
             
             // We need to ensure the model is fully loaded before returning to pool
             // Create a one-time listener for the model load completion
@@ -259,7 +267,7 @@ export class EnemyPreloader {
                 attempts++;
                 
                 if (enemy.model) {
-                    console.log(`[Preload ${preloadId}] ${type} enemy model loaded after ${attempts} attempts`);
+//                    console.log(`[Preload ${preloadId}] ${type} enemy model loaded after ${attempts} attempts`);
                     
                     // Model is loaded, now return to pool
                     // Make sure model is visible to force texture loading
@@ -288,7 +296,7 @@ export class EnemyPreloader {
                     
                     // Add some feedback to browser console about pool status
                     if (type === EnemyType.BASIC && this.preloadedCount % 5 === 0) {
-                        console.log(`Preloaded ${this.preloadedCount}/${this.totalEnemies} enemies (Current: ${type})`);
+//                        console.log(`Preloaded ${this.preloadedCount}/${this.totalEnemies} enemies (Current: ${type})`);
                     }
                     
                     // Call the completion callback
@@ -296,7 +304,7 @@ export class EnemyPreloader {
                 } else {
                     // If we've exceeded max attempts, force continue
                     if (attempts >= maxAttempts) {
-                        console.warn(`[Preload ${preloadId}] Timeout waiting for ${type} model to load after ${attempts} attempts. Continuing anyway.`);
+//                        console.warn(`[Preload ${preloadId}] Timeout waiting for ${type} model to load after ${attempts} attempts. Continuing anyway.`);
                         enemy.removeFromScene();
                         if (onComplete) onComplete();
                         return;
@@ -315,11 +323,71 @@ export class EnemyPreloader {
             
             // Add some feedback to browser console about pool status
             if (type === EnemyType.BASIC && this.preloadedCount % 5 === 0) {
-                console.log(`Preloaded ${this.preloadedCount}/${this.totalEnemies} enemies (Current: ${type})`);
+//                console.log(`Preloaded ${this.preloadedCount}/${this.totalEnemies} enemies (Current: ${type})`);
             }
             
             // Call the completion callback
             if (onComplete) onComplete();
         }
+    }
+    
+    /**
+     * Preloads additional enemies during gameplay to keep pools stocked for later waves
+     * This can be called between waves to ensure pools are well-filled
+     * @param {string} type - The enemy type to preload, or null to preload all types
+     * @param {number} count - The number of enemies to preload of each type (default: 5)
+     * @returns {Promise} A promise that resolves when preloading is complete
+     */
+    preloadAdditionalEnemies(type = null, count = 5) {
+        return new Promise((resolve) => {
+            console.log(`Preloading additional enemies during gameplay: ${type || 'all types'}`);
+            
+            // Determine which types to preload
+            const typesToPreload = type ? [type] : [
+                EnemyType.BASIC, 
+                EnemyType.FAST, 
+                EnemyType.TANKY, 
+                EnemyType.RANGED
+            ];
+            
+            // Count of enemies pending preload
+            let pendingCount = type ? count : count * typesToPreload.length;
+            let completedCount = 0;
+            
+            // For each type to preload
+            typesToPreload.forEach(enemyType => {
+                // Preload in smaller batches to avoid freezes
+                const batchSize = Math.min(count, 3);
+                const batches = Math.ceil(count / batchSize);
+                
+                for (let b = 0; b < batches; b++) {
+                    // Calculate actual size for this batch (last batch may be smaller)
+                    const actualBatchSize = (b === batches - 1) ? 
+                        count - (b * batchSize) : batchSize;
+                        
+                    // Delay each batch slightly to avoid freezes
+                    setTimeout(() => {
+                        this.preloadBatch(enemyType, actualBatchSize, () => {
+                            completedCount += actualBatchSize;
+                            
+                            // Check if all preloading is complete
+                            if (completedCount >= pendingCount) {
+                                console.log(`Additional preloading complete. Added ${completedCount} enemies to pools.`);
+                                
+                                // Log the current state of the enemy pool after additional preloading
+                                console.log("Enemy pool status after additional preloading:", {
+                                    basic: enemyPool.pools[EnemyType.BASIC].length,
+                                    fast: enemyPool.pools[EnemyType.FAST].length,
+                                    tanky: enemyPool.pools[EnemyType.TANKY].length,
+                                    ranged: enemyPool.pools[EnemyType.RANGED].length
+                                });
+                                
+                                resolve();
+                            }
+                        });
+                    }, b * 100); // 100ms between batches
+                }
+            });
+        });
     }
 } 

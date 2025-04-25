@@ -329,7 +329,7 @@ export class SkillSystem {
         // Hide skill selector
         this.container.style.display = 'none';
         
-        console.log(`Skill selected: ${skill.name} (Level ${skill.level})`);
+//        console.log(`Skill selected: ${skill.name} (Level ${skill.level})`);
         
         // Create custom event with some detail data about the skill
         const skillEvent = new CustomEvent('skillSelected', {
@@ -348,7 +348,7 @@ export class SkillSystem {
         // Add a small delay to ensure UI is fully hidden first
         setTimeout(() => {
             if (this.game.paused) {
-                console.log("Resuming game after skill selection");
+//                console.log("Resuming game after skill selection");
                 this.game.togglePause(false); // Resume without showing/hiding overlay
             }
         }, 100);

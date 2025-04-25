@@ -16,7 +16,7 @@ export class WaveManager {
         this.enemiesRemaining = 0;
         this.enemies = [];
         this.waveActive = false;
-        this.timeBetweenWaves = 1500; // Add a 1.5 second pause between waves to ensure cleanup
+        this.timeBetweenWaves = 3000; // Add a 3 second pause between waves to ensure cleanup
         this.waveTimeout = null;
         
         // Wave timer properties
@@ -172,7 +172,7 @@ export class WaveManager {
         this.waveActive = true;
         
         // Log the current power scaling factor for debugging
-        console.log(`Starting Wave ${this.currentWave} with enemy power scaling: ${this.enemyPowerScaling.toFixed(2)}`);
+    //    console.log(`Starting Wave ${this.currentWave} with enemy power scaling: ${this.enemyPowerScaling.toFixed(2)}`);
         
         // Check if this is a boss wave (every 5th wave)
         this.isBossWave = this.currentWave % this.bossWaveFrequency === 0;
@@ -387,7 +387,7 @@ export class WaveManager {
                 // Create spawn effect
                 this.createSpawnEffect(position, enemy.defaultColor);
                 
-            }, i * 500); // Spawn an enemy every half second
+            }, i * 700); // Spawn an enemy every 700ms
         }
     }
     
@@ -467,7 +467,7 @@ export class WaveManager {
             this.enemies.push(this.currentBoss);
             
             // Log for debugging
-            console.log(`Boss spawned: Type ${this.currentBoss.type}, Level ${bossLevel}, Health: ${this.currentBoss.health}`);
+//            console.log(`Boss spawned: Type ${this.currentBoss.type}, Level ${bossLevel}, Health: ${this.currentBoss.health}`);
         }, 2000); // 2 second delay for dramatic effect
     }
     
@@ -769,7 +769,7 @@ export class WaveManager {
         
         // Increase enemy power scaling by 20% after each boss
         this.enemyPowerScaling *= 1.2;
-        console.log(`Enemies powered up! New scaling factor: ${this.enemyPowerScaling.toFixed(2)}`);
+//        console.log(`Enemies powered up! New scaling factor: ${this.enemyPowerScaling.toFixed(2)}`);
         
         // Check if skill selection is visible
         const skillSelectionVisible = this.game && 
@@ -874,19 +874,19 @@ export class WaveManager {
                     // Handle enemy death
                     // Check if it was a boss
                     if (this.isBossWave && enemy === this.currentBoss) {
-                        console.log("Boss died, creating death effect");
+    //                    console.log("Boss died, creating death effect");
                         
                         // IMPORTANT: First get the position before any cleanup occurs
                         // Get position even if the mesh is already gone
                         const bossPosition = enemy.getPosition().clone(); // This now returns a fallback position if null
-                        console.log("Boss death position:", bossPosition);
+    //                    console.log("Boss death position:", bossPosition);
                         
                         // If the boss mesh is still visible, call die() to handle animations
                         if (enemy.mesh && enemy.mesh.visible) {
-                            console.log("Explicitly calling boss die() method");
+    //                        console.log("Explicitly calling boss die() method");
                             enemy.die(); // This will clean up the mesh
                         } else {
-                            console.log("Boss mesh already removed, skipping die() call");
+    //                        console.log("Boss mesh already removed, skipping die() call");
                         }
                         
                         // Create death effect
@@ -900,7 +900,7 @@ export class WaveManager {
                         this.enemies.splice(i, 1);
                         this.enemiesRemaining--;
                         
-                        console.log(`After boss death: enemies remaining: ${this.enemiesRemaining}, wave active: ${this.waveActive}`);
+    //                    console.log(`After boss death: enemies remaining: ${this.enemiesRemaining}, wave active: ${this.waveActive}`);
                     } else {
                         // Regular enemy - use object pool system
                         // For regular enemies, this adds them back to the pool
@@ -912,7 +912,7 @@ export class WaveManager {
                     
                     // Check if wave is complete
                     if (this.enemiesRemaining <= 0 && this.waveActive) {
-                        console.log("Wave complete check in update loop - calling waveComplete()");
+    //                    console.log("Wave complete check in update loop - calling waveComplete()");
                         this.waveComplete();
                     }
                 }
@@ -960,18 +960,26 @@ export class WaveManager {
         this.waveTimerActive = false;
         this.waveCountdown = this.timeBetweenWaves;
         
-        console.log(`Wave ${this.currentWave} complete! isBossWave: ${this.isBossWave}, enemiesRemaining: ${this.enemiesRemaining}`);
+    //    console.log(`Wave ${this.currentWave} complete! isBossWave: ${this.isBossWave}, enemiesRemaining: ${this.enemiesRemaining}`);
+        
+        // Log the current state of the enemy pool after wave completion
+        console.log(`Enemy pool status after Wave ${this.currentWave}:`, {
+            basic: enemyPool.pools[EnemyType.BASIC].length,
+            fast: enemyPool.pools[EnemyType.FAST].length,
+            tanky: enemyPool.pools[EnemyType.TANKY].length,
+            ranged: enemyPool.pools[EnemyType.RANGED].length
+        });
         
         // Update display
         this.updateWaveDisplay();
         
-        // Show wave complete notification
+        // Create notification element with countdown for next wave
         if (this.currentWave > 0) {
-            // Create notification element
+            // Create the main notification element
             const notification = document.createElement('div');
             notification.textContent = `WAVE ${this.currentWave} COMPLETE!`;
             notification.style.position = 'absolute';
-            notification.style.top = '30%'; // Moved up from 40% to avoid overlap
+            notification.style.top = '30%';
             notification.style.left = '50%';
             notification.style.transform = 'translate(-50%, -50%)';
             notification.style.color = 'var(--light-brown)';
@@ -990,7 +998,31 @@ export class WaveManager {
             notification.style.padding = '15px 40px';
             document.body.appendChild(notification);
             
-            // Fade out and remove
+            // Create next wave countdown element
+            const nextWaveNotification = document.createElement('div');
+            nextWaveNotification.id = 'next-wave-countdown';
+            nextWaveNotification.textContent = `WAVE ${this.currentWave + 1} in 3...`;
+            nextWaveNotification.style.position = 'absolute';
+            nextWaveNotification.style.top = '40%';
+            nextWaveNotification.style.left = '50%';
+            nextWaveNotification.style.transform = 'translate(-50%, -50%)';
+            nextWaveNotification.style.color = 'var(--white)';
+            nextWaveNotification.style.fontFamily = '"Exo 2", sans-serif';
+            nextWaveNotification.style.fontSize = '28px';
+            nextWaveNotification.style.fontWeight = 'bold';
+            nextWaveNotification.style.textShadow = '0 0 10px rgba(255, 255, 255, 0.7)';
+            nextWaveNotification.style.zIndex = '200';
+            nextWaveNotification.style.opacity = '1';
+            nextWaveNotification.style.transition = 'opacity 0.3s';
+            nextWaveNotification.style.backgroundColor = 'var(--panel-bg)';
+            nextWaveNotification.style.backdropFilter = 'blur(4px)';
+            nextWaveNotification.style.borderRadius = '16px';
+            nextWaveNotification.style.boxShadow = 'var(--shadow)';
+            nextWaveNotification.style.border = '1px solid rgba(255, 255, 255, 0.18)';
+            nextWaveNotification.style.padding = '15px 40px';
+            document.body.appendChild(nextWaveNotification);
+            
+            // Fade out complete notification after 1.5 seconds
             setTimeout(() => {
                 notification.style.opacity = '0';
                 setTimeout(() => {
@@ -999,6 +1031,33 @@ export class WaveManager {
                     }
                 }, 1000);
             }, 1500);
+            
+            // Track countdown intervals to clear them if needed
+            const countdownIntervals = [];
+            
+            // Update the countdown every second using specific timeouts
+            setTimeout(() => {
+                nextWaveNotification.textContent = `WAVE ${this.currentWave + 1} in 2...`;
+            }, 1000);
+            
+            setTimeout(() => {
+                nextWaveNotification.textContent = `WAVE ${this.currentWave + 1} in 1...`;
+            }, 2000);
+            
+            // Show final message right before the wave starts
+            setTimeout(() => {
+                nextWaveNotification.textContent = `WAVE ${this.currentWave + 1} STARTING!`;
+                
+                // Fade out the notification after showing the final message
+                setTimeout(() => {
+                    nextWaveNotification.style.opacity = '0';
+                    setTimeout(() => {
+                        if (nextWaveNotification.parentNode) {
+                            document.body.removeChild(nextWaveNotification);
+                        }
+                    }, 300);
+                }, 400);
+            }, 2800);
         }
         
         // Clear any existing timeout to prevent multiple wave starts
@@ -1042,7 +1101,7 @@ export class WaveManager {
             document.addEventListener('skillSelected', this.startNextWaveAfterUnpause);
         } else {
             // Simply schedule the next wave 
-            console.log("Scheduling next wave start with no delay");
+    //        console.log("Scheduling next wave start with countdown");
             this.waveTimeout = setTimeout(() => {
                 this.startNextWave();
             }, this.timeBetweenWaves);
@@ -1075,7 +1134,7 @@ export class WaveManager {
     }
     
     createBossDeathEffect(position) {
-        console.log("Creating boss death effect at position:", position);
+//        console.log("Creating boss death effect at position:", position);
         try {
             // Create spectacular death effect for boss
             // Similar to spawn effect but with different colors and behavior
@@ -1190,7 +1249,7 @@ export class WaveManager {
                         requestAnimationFrame(animate);
                     } else if (!cleanupDone) {
                         cleanupDone = true;
-                        console.log("Boss death animation complete - cleaning up all effect objects");
+//                        console.log("Boss death animation complete - cleaning up all effect objects");
                         
                         // Use try/catch for cleanup to avoid errors stopping the sequence
                         try {

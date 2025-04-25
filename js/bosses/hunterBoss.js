@@ -215,7 +215,7 @@ export class HunterBoss extends BaseEnemy {
             loader.load(
                 modelURL,
                 (gltf) => {
-                    console.log('Hunter boss model loaded successfully');
+//                    console.log('Hunter boss model loaded successfully');
                     
                     // Find and remove the placeholder by name
                     const placeholderObj = this.mesh.getObjectByName("placeholder");
@@ -288,7 +288,7 @@ export class HunterBoss extends BaseEnemy {
                         // Store all animations
                         gltf.animations.forEach((clip) => {
                             this.animationActions[clip.name] = this.mixer.clipAction(clip);
-                            console.log(`Loaded animation: ${clip.name}`);
+//                            console.log(`Loaded animation: ${clip.name}`);
                         });
                         
                         // Start the run animation by default
@@ -297,10 +297,10 @@ export class HunterBoss extends BaseEnemy {
                         }
                     }
                     
-                    console.log("Hunter boss 3D model setup complete");
+//                    console.log("Hunter boss 3D model setup complete");
                 },
                 (xhr) => {
-                    console.log(`Loading hunter boss model: ${(xhr.loaded / xhr.total * 100)}% loaded`);
+//                    console.log(`Loading hunter boss model: ${(xhr.loaded / xhr.total * 100)}% loaded`);
                 },
                 (error) => {
                     console.error('Error loading hunter boss model:', error);
@@ -308,7 +308,7 @@ export class HunterBoss extends BaseEnemy {
                 }
             );
             
-            console.log("Hunter boss mesh creation initiated");
+//            console.log("Hunter boss mesh creation initiated");
         } catch (error) {
             console.error("Error creating Hunter boss mesh:", error);
         }
@@ -519,7 +519,7 @@ export class HunterBoss extends BaseEnemy {
             
             // Check if animation exists before attempting to play it
             if (!this.animationActions || !this.animationActions[name]) {
-                console.warn(`Animation '${name}' not found in available animations`);
+//                console.warn(`Animation '${name}' not found in available animations`);
                 return;
             }
             
@@ -540,7 +540,7 @@ export class HunterBoss extends BaseEnemy {
                 this.currentAnimation = action;
                 this.currentAnimation.reset().fadeIn(0.2).play();
                 
-                console.log(`Playing hunter animation: ${name}`);
+ //               console.log(`Playing hunter animation: ${name}`);
             } catch (animError) {
                 console.error(`Error playing animation '${name}':`, animError);
                 this.currentAnimation = null;
@@ -569,7 +569,7 @@ export class HunterBoss extends BaseEnemy {
     // Basic melee attack
     attackPlayer() {
         try {
-            console.log("Hunter boss performing melee attack");
+//            console.log("Hunter boss performing melee attack");
             
             // Get direction to player
             const playerPosition = this.player.getPosition();
@@ -686,7 +686,7 @@ export class HunterBoss extends BaseEnemy {
         try {
             if (!this.isAlive) return;
             
-            console.log("Hunter boss throwing knife");
+//            console.log("Hunter boss throwing knife");
             
             // Play ranged attack animation if available
             if (this.mixer && (this.animationActions['Throw'] || this.animationActions['Attack'])) {
@@ -721,7 +721,7 @@ export class HunterBoss extends BaseEnemy {
             direction.z += (Math.random() * 0.1) - 0.05;
             direction.normalize();
             
-            console.log(`Creating knife projectile with damage: ${knifeDamage}`);
+//            console.log(`Creating knife projectile with damage: ${knifeDamage}`);
             
             // Create knife projectile with new API format - use knife color
             const projectile = new Projectile(
@@ -773,7 +773,7 @@ export class HunterBoss extends BaseEnemy {
                 if (projectile.checkPlayerCollision) {
                     playerHit = projectile.checkPlayerCollision(this.player);
                     if (playerHit) {
-                        console.log(`Hunter projectile hit player for ${projectile.damage} damage!`);
+//                        console.log(`Hunter projectile hit player for ${projectile.damage} damage!`);
                     }
                 } else {
                     // Manual collision check as fallback if the standard method is unavailable
@@ -792,7 +792,7 @@ export class HunterBoss extends BaseEnemy {
                     const distance = projectilePos.distanceTo(playerPos);
                     
                     if (distance < (projectile.size + 0.5)) {
-                        console.log(`Hunter projectile hit player for ${projectile.damage} damage (fallback collision)!`);
+//                        console.log(`Hunter projectile hit player for ${projectile.damage} damage (fallback collision)!`);
                         this.player.takeDamage(projectile.damage);
                         projectile.deactivate();
                         playerHit = true;
@@ -815,7 +815,7 @@ export class HunterBoss extends BaseEnemy {
             this.attackCooldown *= 0.8;
             this.specialAttackCooldown *= 0.7;
             
-            console.log(`Hunter boss entering phase ${this.currentPhase}. New speed: ${this.moveSpeed}`);
+//            console.log(`Hunter boss entering phase ${this.currentPhase}. New speed: ${this.moveSpeed}`);
             
             // Special effect for phase transition
             this.createPhaseTransitionEffect();
@@ -841,7 +841,7 @@ export class HunterBoss extends BaseEnemy {
     
     playEntranceAnimation() {
         try {
-            console.log("Hunter boss dramatic entrance");
+//            console.log("Hunter boss dramatic entrance");
             
             // Safety check - if mesh doesn't exist, we can't do the animation
             if (!this.mesh) {
@@ -922,7 +922,7 @@ export class HunterBoss extends BaseEnemy {
     createSmokeEffect() {
         // Safety check - if mesh doesn't exist, we can't do the effect
         if (!this.mesh) {
-            console.warn("Cannot create smoke effect - mesh is null");
+//            console.warn("Cannot create smoke effect - mesh is null");
             return;
         }
         
@@ -1010,7 +1010,7 @@ export class HunterBoss extends BaseEnemy {
     
     createPhaseTransitionEffect() {
         try {
-            console.log(`Hunter boss entering phase ${this.currentPhase}`);
+//            console.log(`Hunter boss entering phase ${this.currentPhase}`);
             
             // Make eyes flash brighter
             if (this.leftEye && this.rightEye) {
@@ -1163,7 +1163,7 @@ export class HunterBoss extends BaseEnemy {
         try {
             if (!this.isAlive || this.isDashing) return;
             
-            console.log("Hunter boss performing dash attack");
+//            console.log("Hunter boss performing dash attack");
             
             const currentTime = Date.now();
             this.lastDashTime = currentTime;
@@ -1269,7 +1269,7 @@ export class HunterBoss extends BaseEnemy {
         
         // Hit detection for player (check if we haven't already hit this player during this dash)
         if (distanceToPlayer < this.size + 0.5 && !this.dashHitPlayers.has(playerId)) {
-            console.log(`Hunter dash hit player for ${this.damage * 2.0} damage`);
+//            console.log(`Hunter dash hit player for ${this.damage * 2.0} damage`);
             this.player.takeDamage(this.damage * 2.0); // Reduced from 2.5x to 2.0x damage
             
             // Add player to the set of hit players
@@ -1379,7 +1379,7 @@ export class HunterBoss extends BaseEnemy {
     // Special attack - Throwing Knives
     throwingKnives() {
         try {
-            console.log("Hunter boss unleashing Throwing Knives");
+//            console.log("Hunter boss unleashing Throwing Knives");
             
             // Visual telegraph
             this.flashColor(0xccffcc, 300);
@@ -1433,7 +1433,7 @@ export class HunterBoss extends BaseEnemy {
                         const knifeSize = 0.2;
                         const knifeDamage = this.damage * 0.5; // 50% damage for multiple knives
                         
-                        console.log(`Creating special knife projectile with damage: ${knifeDamage}`);
+//                        console.log(`Creating special knife projectile with damage: ${knifeDamage}`);
                         
                         // Create projectile with Projectile class (using the correct constructor format)
                         const projectile = new Projectile(
@@ -1471,7 +1471,7 @@ export class HunterBoss extends BaseEnemy {
         try {
             if (!this.isAlive) return;
             
-            console.log("Hunter boss using smoke bomb");
+//            console.log("Hunter boss using smoke bomb");
             
             // Play special attack animation if available
             if (this.mixer && (this.animationActions['Special'] || this.animationActions['Attack'])) {
@@ -1554,7 +1554,7 @@ export class HunterBoss extends BaseEnemy {
             // Call base class die method
             super.die();
             
-            console.log("Hunter boss dying!");
+//            console.log("Hunter boss dying!");
             
             // Clean up projectiles
             if (this.projectiles && this.projectiles.length > 0) {
@@ -1590,7 +1590,7 @@ export class HunterBoss extends BaseEnemy {
         try {
             if (!this.mesh) return;
             
-            console.log("Hunter boss removeFromScene called");
+//            console.log("Hunter boss removeFromScene called");
             
             // Stop all animations
             if (this.mixer) {
@@ -1715,7 +1715,7 @@ export class HunterBoss extends BaseEnemy {
                 this.mesh = null;
             }
             
-            console.log("Hunter boss resources cleaned up");
+//            console.log("Hunter boss resources cleaned up");
         } catch (error) {
             console.error("Error cleaning up Hunter boss resources:", error);
         }
@@ -1761,7 +1761,7 @@ export class HunterBoss extends BaseEnemy {
         
         // Check if mesh exists, if not create it
         if (!this.mesh) {
-            console.log(`Mesh was null, creating enemy mesh for HunterBoss at position ${position.x}, ${position.y}, ${position.z}`);
+//            console.log(`Mesh was null, creating enemy mesh for HunterBoss at position ${position.x}, ${position.y}, ${position.z}`);
             this.createEnemyMesh(position);
             
             // After creating mesh, update health bar
@@ -1814,6 +1814,6 @@ export class HunterBoss extends BaseEnemy {
             this.playEntranceAnimation();
         }
         
-        console.log(`Reset Hunter boss to level ${bossLevel} at position ${position.x}, ${position.y}, ${position.z}`);
+//        console.log(`Reset Hunter boss to level ${bossLevel} at position ${position.x}, ${position.y}, ${position.z}`);
     }
 } 

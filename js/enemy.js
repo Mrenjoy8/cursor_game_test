@@ -24,13 +24,16 @@ class EnemyPool {
     get(type, scene, position, player, powerScaling = 1.0) {
         // Check if we have an available enemy in the pool
         if (this.pools[type] && this.pools[type].length > 0) {
-            const enemy = this.pools[type].pop();
+            // Use shift() instead of pop() to get the oldest enemy from the pool (FIFO)
+            // instead of the newest one (LIFO)
+            const enemy = this.pools[type].shift();
             
             // Check if the enemy was recently released - implement cooldown period
             const currentTime = Date.now();
-            if (enemy._lastReleaseTime && (currentTime - enemy._lastReleaseTime < 1500)) {
-                // If released less than 1.5 seconds ago, put it back and create a new enemy instead
-                console.log(`Enemy ${enemy.id} was recently released (${currentTime - enemy._lastReleaseTime}ms ago), creating new one instead`);
+            if (enemy._lastReleaseTime && (currentTime - enemy._lastReleaseTime < 300)) {
+                // If released less than 300ms ago, put it back and create a new enemy instead
+//                console.log(`COOLDOWN: Enemy ${enemy.id} of type ${enemy.type} was recently released (${currentTime - enemy._lastReleaseTime}ms ago), creating new one instead`);
+                // Add it back to the END of the pool to maintain the FIFO order
                 this.pools[type].push(enemy); // Put it back in the pool
                 
                 // Create a new instance
@@ -48,7 +51,7 @@ class EnemyPool {
                 })();
                 
                 // Log newly created enemy stats
-                console.log(`Created new ${newEnemy.type} enemy: Health=${newEnemy.health.toFixed(1)}/${newEnemy.maxHealth.toFixed(1)}, Damage=${newEnemy.damage.toFixed(1)}, Speed=${newEnemy.moveSpeed.toFixed(4)}, PowerScaling=${newEnemy.powerScaling.toFixed(2)}`);
+//                console.log(`COOLDOWN: Created new ${newEnemy.type} enemy due to cooldown restriction`);
                 
                 return newEnemy;
             }
@@ -56,7 +59,7 @@ class EnemyPool {
             enemy.reset(position, powerScaling);
             
             // Log enemy stats after being pulled from pool
-            console.log(`Respawned ${enemy.type} enemy: Health=${enemy.health.toFixed(1)}/${enemy.maxHealth.toFixed(1)}, Damage=${enemy.damage.toFixed(1)}, Speed=${enemy.moveSpeed.toFixed(4)}, PowerScaling=${enemy.powerScaling.toFixed(2)}`);
+//            console.log(`REUSED: Enemy ${enemy.id} of type ${enemy.type} successfully reused from pool`);
             
             return enemy;
         }
@@ -76,7 +79,7 @@ class EnemyPool {
         })();
         
         // Log newly created enemy stats
-        console.log(`Created new ${newEnemy.type} enemy: Health=${newEnemy.health.toFixed(1)}/${newEnemy.maxHealth.toFixed(1)}, Damage=${newEnemy.damage.toFixed(1)}, Speed=${newEnemy.moveSpeed.toFixed(4)}, PowerScaling=${newEnemy.powerScaling.toFixed(2)}`);
+//        console.log(`NEW: Created new ${newEnemy.type} enemy because pool was empty`);
         
         return newEnemy;
     }
@@ -137,16 +140,16 @@ class EnemyPool {
                     // Ensure model position is properly reset for next use
                     if (enemy.type === EnemyType.BASIC) {
                         enemy.model.position.y = -0.75;
-                        console.log(`Enemy ${enemy.id} returned to pool, model position reset to y=${enemy.model.position.y}`);
+                        // console.log(`Enemy ${enemy.id} returned to pool, model position reset to y=${enemy.model.position.y}`);
                     } else if (enemy.type === EnemyType.FAST) {
                         enemy.model.position.y = -0.4;
-                        console.log(`Enemy ${enemy.id} returned to pool, model position reset to y=${enemy.model.position.y}`);
+                        // console.log(`Enemy ${enemy.id} returned to pool, model position reset to y=${enemy.model.position.y}`);
                     } else if (enemy.type === EnemyType.TANKY) {
                         enemy.model.position.y = -0.9;
-                        console.log(`Enemy ${enemy.id} returned to pool, model position reset to y=${enemy.model.position.y}`);
+                        // console.log(`Enemy ${enemy.id} returned to pool, model position reset to y=${enemy.model.position.y}`);
                     } else if (enemy.type === EnemyType.RANGED) {
                         enemy.model.position.y = -0.5;
-                        console.log(`Enemy ${enemy.id} returned to pool, model position reset to y=${enemy.model.position.y}`);
+                        // console.log(`Enemy ${enemy.id} returned to pool, model position reset to y=${enemy.model.position.y}`);
                     }
                 }
                 // Ensure material color is reset to default before pooling for basic mesh
@@ -180,12 +183,13 @@ class EnemyPool {
             
             // Add to pool - preserve the enemy's identity and position
             // Limit pool size to prevent memory issues
-            const MAX_POOL_SIZE = 30;
+            const MAX_POOL_SIZE = 50;
             if (this.pools[enemy.type].length < MAX_POOL_SIZE) {
-                console.log(`Enemy ${enemy.id} of type ${enemy.type} returned to pool. Current pool size: ${this.pools[enemy.type].length}`);
+                // console.log(`Enemy ${enemy.id} of type ${enemy.type} returned to pool. Current pool size: ${this.pools[enemy.type].length}`);
+                // Add to the end of the pool (push) to maintain FIFO order
                 this.pools[enemy.type].push(enemy);
             } else {
-                console.log(`Pool for ${enemy.type} is full (${MAX_POOL_SIZE}), discarding enemy ${enemy.id}`);
+                // console.log(`Pool for ${enemy.type} is full (${MAX_POOL_SIZE}), discarding enemy ${enemy.id}`);
                 // We don't need to do additional cleanup since we already did it above
             }
         }
@@ -466,7 +470,7 @@ export class BaseEnemy {
                         break;
                 }
                 
-                console.log(`Enemy ${this.id} reset with model position y=${this.model.position.y}, type=${this.type}`);
+                // console.log(`Enemy ${this.id} reset with model position y=${this.model.position.y}, type=${this.type}`);
                 
                 // Reset all materials
                 this.restoreOriginalMaterials();
@@ -514,16 +518,16 @@ export class BaseEnemy {
         // Check model position - safety measure to prevent floating
         if (this.type === EnemyType.BASIC && this.model && this.model.position.y !== -0.75) {
             this.model.position.y = -0.75;
-            console.log(`Fixed floating basic enemy, reset model y to -0.75`, this.id);
+            // console.log(`Fixed floating basic enemy, reset model y to -0.75`, this.id);
         } else if (this.type === EnemyType.FAST && this.model && this.model.position.y !== -0.4) {
             this.model.position.y = -0.4;
-            console.log(`Fixed floating fast enemy, reset model y to -0.4`, this.id);
+            // console.log(`Fixed floating fast enemy, reset model y to -0.4`, this.id);
         } else if (this.type === EnemyType.TANKY && this.model && this.model.position.y !== -0.9) {
             this.model.position.y = -0.9;
-            console.log(`Fixed floating tanky enemy, reset model y to -0.9`, this.id);
+            // console.log(`Fixed floating tanky enemy, reset model y to -0.9`, this.id);
         } else if (this.type === EnemyType.RANGED && this.model && this.model.position.y !== -0.5) {
             this.model.position.y = -0.5;
-            console.log(`Fixed floating ranged enemy, reset model y to -0.5`, this.id);
+            // console.log(`Fixed floating ranged enemy, reset model y to -0.5`, this.id);
         }
         
         // Validate position to prevent geometry errors
@@ -1077,7 +1081,7 @@ export class BasicEnemy extends BaseEnemy {
         loader.load(
             modelURL,
             (gltf) => {
-                console.log('Basic enemy model loaded successfully');
+                // console.log('Basic enemy model loaded successfully');
                 
                 // Remove placeholder - ensure it's actually removed
                 if (this.placeholder && this.mesh.children.includes(this.placeholder)) {
@@ -1097,7 +1101,7 @@ export class BasicEnemy extends BaseEnemy {
                 
                 // Position the model below current level so feet touch the ground
                 this.model.position.y = -0.75;
-                console.log(`Basic enemy model position set to y=${this.model.position.y}`, this.id);
+                // console.log(`Basic enemy model position set to y=${this.model.position.y}`, this.id);
                 
                 // Make sure model casts shadows
                 this.model.traverse((node) => {
@@ -1136,7 +1140,7 @@ export class BasicEnemy extends BaseEnemy {
             },
             (xhr) => {
                 const progress = xhr.total ? Math.round((xhr.loaded / xhr.total) * 100) : 0;
-                console.log(`Loading basic enemy model: ${progress}% loaded`);
+                // console.log(`Loading basic enemy model: ${progress}% loaded`);
             },
             (error) => {
                 console.error('Error loading basic enemy model:', error);
@@ -1222,7 +1226,7 @@ export class FastEnemy extends BaseEnemy {
         loader.load(
             modelURL,
             (gltf) => {
-                console.log('Fast enemy model loaded successfully');
+                // console.log('Fast enemy model loaded successfully');
                 
                 // Remove placeholder - ensure it's actually removed
                 if (this.placeholder && this.mesh.children.includes(this.placeholder)) {
@@ -1242,7 +1246,7 @@ export class FastEnemy extends BaseEnemy {
                 
                 // Position the model below current level so feet touch the ground
                 this.model.position.y = -0.4;
-                console.log(`Fast enemy model position set to y=${this.model.position.y}`, this.id);
+                // console.log(`Fast enemy model position set to y=${this.model.position.y}`, this.id);
                 
                 // Make sure model casts shadows
                 this.model.traverse((node) => {
@@ -1281,7 +1285,7 @@ export class FastEnemy extends BaseEnemy {
             },
             (xhr) => {
                 const progress = xhr.total ? Math.round((xhr.loaded / xhr.total) * 100) : 0;
-                console.log(`Loading fast enemy model: ${progress}% loaded`);
+                // console.log(`Loading fast enemy model: ${progress}% loaded`);
             },
             (error) => {
                 console.error('Error loading fast enemy model:', error);
@@ -1369,7 +1373,7 @@ export class TankyEnemy extends BaseEnemy {
         loader.load(
             modelURL,
             (gltf) => {
-                console.log('Tanky enemy model loaded successfully');
+                // console.log('Tanky enemy model loaded successfully');
                 
                 // Remove placeholder - ensure it's actually removed
                 if (this.placeholder && this.mesh.children.includes(this.placeholder)) {
@@ -1389,7 +1393,7 @@ export class TankyEnemy extends BaseEnemy {
                 
                 // Position the model below current level so feet touch the ground
                 this.model.position.y = -0.9;
-                console.log(`Tanky enemy model position set to y=${this.model.position.y}`, this.id);
+                // console.log(`Tanky enemy model position set to y=${this.model.position.y}`, this.id);
                 
                 // Make sure model casts shadows
                 this.model.traverse((node) => {
@@ -1428,7 +1432,7 @@ export class TankyEnemy extends BaseEnemy {
             },
             (xhr) => {
                 const progress = xhr.total ? Math.round((xhr.loaded / xhr.total) * 100) : 0;
-                console.log(`Loading tanky enemy model: ${progress}% loaded`);
+                // console.log(`Loading tanky enemy model: ${progress}% loaded`);
             },
             (error) => {
                 console.error('Error loading tanky enemy model:', error);
@@ -1519,7 +1523,7 @@ export class RangedEnemy extends BaseEnemy {
         loader.load(
             modelURL,
             (gltf) => {
-                console.log('Ranged enemy model loaded successfully');
+                // console.log('Ranged enemy model loaded successfully');
                 
                 // Remove placeholder - ensure it's actually removed
                 if (this.placeholder && this.mesh.children.includes(this.placeholder)) {
@@ -1539,7 +1543,7 @@ export class RangedEnemy extends BaseEnemy {
                 
                 // Position the model below current level so feet touch the ground
                 this.model.position.y = -0.5;
-                console.log(`Ranged enemy model position set to y=${this.model.position.y}`, this.id);
+                // console.log(`Ranged enemy model position set to y=${this.model.position.y}`, this.id);
                 
                 // Make sure model casts shadows
                 this.model.traverse((node) => {
@@ -1578,7 +1582,7 @@ export class RangedEnemy extends BaseEnemy {
             },
             (xhr) => {
                 const progress = xhr.total ? Math.round((xhr.loaded / xhr.total) * 100) : 0;
-                console.log(`Loading ranged enemy model: ${progress}% loaded`);
+                // console.log(`Loading ranged enemy model: ${progress}% loaded`);
             },
             (error) => {
                 console.error('Error loading ranged enemy model:', error);
@@ -1610,16 +1614,16 @@ export class RangedEnemy extends BaseEnemy {
         // Check model position - safety measure to prevent floating
         if (this.type === EnemyType.BASIC && this.model && this.model.position.y !== -0.75) {
             this.model.position.y = -0.75;
-            console.log(`Fixed floating basic enemy, reset model y to -0.75`, this.id);
+            // console.log(`Fixed floating basic enemy, reset model y to -0.75`, this.id);
         } else if (this.type === EnemyType.FAST && this.model && this.model.position.y !== -0.4) {
             this.model.position.y = -0.4;
-            console.log(`Fixed floating fast enemy, reset model y to -0.4`, this.id);
+            // console.log(`Fixed floating fast enemy, reset model y to -0.4`, this.id);
         } else if (this.type === EnemyType.TANKY && this.model && this.model.position.y !== -0.9) {
             this.model.position.y = -0.9;
-            console.log(`Fixed floating tanky enemy, reset model y to -0.9`, this.id);
+            // console.log(`Fixed floating tanky enemy, reset model y to -0.9`, this.id);
         } else if (this.type === EnemyType.RANGED && this.model && this.model.position.y !== -0.5) {
             this.model.position.y = -0.5;
-            console.log(`Fixed floating ranged enemy, reset model y to -0.5`, this.id);
+            // console.log(`Fixed floating ranged enemy, reset model y to -0.5`, this.id);
         }
         
         // Validate position to prevent geometry errors

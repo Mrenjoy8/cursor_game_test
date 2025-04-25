@@ -68,7 +68,7 @@ export class Player {
         loader.load(
             modelURL,
             (gltf) => {
-                console.log('Player model loaded successfully');
+//                console.log('Player model loaded successfully');
                 
                 // Remove placeholder
                 this.mesh.remove(placeholder);
@@ -119,13 +119,13 @@ export class Player {
                     } else if (gltf.animations.length > 0) {
                         // If no Idle animation, don't automatically play any animation
                         // Just store the available animation name(s) for use during movement
-                        console.log(`No Idle animation found. Available animations: ${gltf.animations.map(a => a.name).join(', ')}`);
+//                        console.log(`No Idle animation found. Available animations: ${gltf.animations.map(a => a.name).join(', ')}`);
                     }
                 }
             },
             (xhr) => {
                 const progress = xhr.total ? Math.round((xhr.loaded / xhr.total) * 100) : 0;
-                console.log(`Loading player model: ${progress}% loaded`);
+//                console.log(`Loading player model: ${progress}% loaded`);
             },
             (error) => {
                 console.error('Error loading player model:', error);
@@ -447,7 +447,7 @@ export class Player {
                 return;
             }
             
-            console.log(`Player taking ${amount} damage. Health before: ${this.health}`);
+//            console.log(`Player taking ${amount} damage. Health before: ${this.health}`);
             
             this.health -= amount;
             
@@ -498,7 +498,7 @@ export class Player {
             }
             
             // Log health after taking damage
-            console.log(`Player health after damage: ${this.health}/${this.maxHealth}`);
+//            console.log(`Player health after damage: ${this.health}/${this.maxHealth}`);
             
             if (this.health <= 0) {
                 this.health = 0;
@@ -558,7 +558,7 @@ export class Player {
         if (this.mesh && this.mesh.position) {
             // Check for NaN or infinite values in position
             if (!isFinite(this.mesh.position.x) || !isFinite(this.mesh.position.y) || !isFinite(this.mesh.position.z)) {
-                console.warn(`Invalid player position detected. Resetting position.`);
+//                console.warn(`Invalid player position detected. Resetting position.`);
                 // Reset to a safe position to prevent geometry calculation errors
                 this.mesh.position.set(0, 0, 0);
                 

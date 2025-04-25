@@ -38,12 +38,12 @@ class BossPool {
             // Reset and reposition the boss
             boss.reset(position, bossLevel);
             
-            console.log(`Reusing ${type} boss from pool (level ${bossLevel})`);
+//            console.log(`Reusing ${type} boss from pool (level ${bossLevel})`);
             return boss;
         }
         
         // Create a new boss if none is available in the pool
-        console.log(`Creating new ${type} boss (level ${bossLevel})`);
+//        console.log(`Creating new ${type} boss (level ${bossLevel})`);
         
         switch (type) {
             case BossType.TITAN:
@@ -98,7 +98,7 @@ class BossPool {
             
             // Add to the appropriate pool
             this.pools[boss.type].push(boss);
-            console.log(`${boss.type} boss returned to pool`);
+//            console.log(`${boss.type} boss returned to pool`);
         }
     }
 }

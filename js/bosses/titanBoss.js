@@ -189,7 +189,7 @@ export class TitanBoss extends BaseEnemy {
             loader.load(
                 modelURL,
                 (gltf) => {
-                    console.log('Titan boss model loaded successfully');
+//                    console.log('Titan boss model loaded successfully');
                     
                     // Find and remove the placeholder by name
                     const placeholderObj = this.mesh.getObjectByName("placeholder");
@@ -262,7 +262,7 @@ export class TitanBoss extends BaseEnemy {
                         // Store all animations
                         gltf.animations.forEach((clip) => {
                             this.animationActions[clip.name] = this.mixer.clipAction(clip);
-                            console.log(`Loaded animation: ${clip.name}`);
+//                            console.log(`Loaded animation: ${clip.name}`);
                         });
                         
                         // Start the run animation by default
@@ -271,10 +271,10 @@ export class TitanBoss extends BaseEnemy {
                         }
                     }
                     
-                    console.log("Titan boss 3D model setup complete");
+//                    console.log("Titan boss 3D model setup complete");
                 },
                 (xhr) => {
-                    console.log(`Loading titan boss model: ${(xhr.loaded / xhr.total * 100)}% loaded`);
+//                    console.log(`Loading titan boss model: ${(xhr.loaded / xhr.total * 100)}% loaded`);
                 },
                 (error) => {
                     console.error('Error loading titan boss model:', error);
@@ -283,7 +283,7 @@ export class TitanBoss extends BaseEnemy {
             );
             
             // Log for debugging
-            console.log("Titan boss mesh creation initiated");
+//            console.log("Titan boss mesh creation initiated");
         } catch (error) {
             console.error("Error creating Titan boss mesh:", error);
         }
@@ -375,7 +375,7 @@ export class TitanBoss extends BaseEnemy {
             this.flashColor(0xff0000);
             
             // Debug log for damage
-            console.log(`Titan boss took ${reducedDamage} damage (reduced from ${amount} by armor). Health: ${this.health}/${this.maxHealth}`);
+//            console.log(`Titan boss took ${reducedDamage} damage (reduced from ${amount} by armor). Health: ${this.health}/${this.maxHealth}`);
             
             // Check if dead
             if (this.health <= 0) {
@@ -443,7 +443,7 @@ export class TitanBoss extends BaseEnemy {
             const attackFunction = this.attackPatterns[randomIndex];
             
             // Log which special attack is being performed
-            console.log(`Titan boss performing special attack: ${attackFunction.name || "Unknown"}`);
+//            console.log(`Titan boss performing special attack: ${attackFunction.name || "Unknown"}`);
             
             // Execute the selected attack
             attackFunction();
@@ -458,7 +458,7 @@ export class TitanBoss extends BaseEnemy {
     // Special attack methods
     groundSmash() {
         try {
-            console.log("Titan boss performing Ground Smash attack");
+//            console.log("Titan boss performing Ground Smash attack");
             
             // Wind up animation
             this.flashColor(0xff6600, 500);
@@ -493,7 +493,7 @@ export class TitanBoss extends BaseEnemy {
                         // Damage decreases with distance
                         const damageMultiplier = 1 - (distanceToPlayer / (this.size * 3));
                         const damage = this.damage * 1.5 * damageMultiplier;
-                        console.log(`Ground smash hitting player for ${damage} damage`);
+//                        console.log(`Ground smash hitting player for ${damage} damage`);
                         this.player.takeDamage(damage);
                     }
                 }, 500);
@@ -611,7 +611,7 @@ export class TitanBoss extends BaseEnemy {
     
     multiSmash() {
         try {
-            console.log("Titan boss performing Multi-Smash attack");
+//            console.log("Titan boss performing Multi-Smash attack");
             
             // Visual telegraph for charge
             this.flashColor(0xff9900, 400);
@@ -642,7 +642,7 @@ export class TitanBoss extends BaseEnemy {
             setTimeout(() => {
                 if (!this.isAlive) return;
                 
-                console.log("Titan boss starting charge attack");
+//                console.log("Titan boss starting charge attack");
                 
                 this.isCharging = true;
                 this.chargeTarget = playerPosition.clone();
@@ -698,7 +698,7 @@ export class TitanBoss extends BaseEnemy {
                 const distanceToPlayer = new THREE.Vector3().subVectors(playerPosition, this.mesh.position).length();
                 
                 if (distanceToPlayer < this.size + 0.5) {
-                    console.log(`Titan charge hit player for ${this.damage * 2} damage`);
+//                    console.log(`Titan charge hit player for ${this.damage * 2} damage`);
                     this.player.takeDamage(this.damage * 2);
                     
                     // Knock the player back
@@ -780,7 +780,7 @@ export class TitanBoss extends BaseEnemy {
         const distanceToPlayer = new THREE.Vector3().subVectors(playerPosition, position).length();
         
         if (distanceToPlayer < this.size * 2.5) {
-            console.log(`Charge impact hit player for ${this.damage * 1.5} damage`);
+//            console.log(`Charge impact hit player for ${this.damage * 1.5} damage`);
             this.player.takeDamage(this.damage * 1.5);
         }
     }
@@ -794,7 +794,7 @@ export class TitanBoss extends BaseEnemy {
             
             if (distanceToPlayer <= this.attackRange) {
                 // Deal damage to player
-                console.log(`Titan melee attacking player for ${this.damage} damage`);
+//                console.log(`Titan melee attacking player for ${this.damage} damage`);
                 this.player.takeDamage(this.damage);
                 
                 // Play attack animation if available, otherwise use the old animation
@@ -908,7 +908,7 @@ export class TitanBoss extends BaseEnemy {
     
     playEntranceAnimation() {
         try {
-            console.log("Titan boss dramatic entrance");
+//            console.log("Titan boss dramatic entrance");
             
             // Safety check - if mesh doesn't exist, we can't do the animation
             if (!this.mesh) {
@@ -1113,7 +1113,7 @@ export class TitanBoss extends BaseEnemy {
     
     // Override removeFromScene to clean up properly
     removeFromScene() {
-        console.log("Titan Boss removeFromScene called - ensuring complete cleanup");
+//        console.log("Titan Boss removeFromScene called - ensuring complete cleanup");
         
         // Stop all animations
         if (this.mixer) {
@@ -1219,7 +1219,7 @@ export class TitanBoss extends BaseEnemy {
                 this.mesh = null;
             }
             
-            console.log("Titan boss resources cleaned up completely");
+//            console.log("Titan boss resources cleaned up completely");
         } catch (error) {
             console.error("Error cleaning up Titan boss resources:", error);
         }
@@ -1264,7 +1264,7 @@ export class TitanBoss extends BaseEnemy {
                 this.currentAnimation.fadeIn(0.2);
                 this.currentAnimation.play();
                 
-                console.log(`Playing titan animation: ${name}`);
+//                console.log(`Playing titan animation: ${name}`);
             } catch (animError) {
                 console.error(`Error playing animation '${name}':`, animError);
                 this.currentAnimation = null;
@@ -1376,6 +1376,6 @@ export class TitanBoss extends BaseEnemy {
             this.playEntranceAnimation();
         }
         
-        console.log(`Reset Titan boss to level ${bossLevel} at position ${position.x}, ${position.y}, ${position.z}`);
+//        console.log(`Reset Titan boss to level ${bossLevel} at position ${position.x}, ${position.y}, ${position.z}`);
     }
 } 

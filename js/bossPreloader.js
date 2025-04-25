@@ -105,8 +105,8 @@ export class BossPreloader {
             // Show loading indicator
             document.body.appendChild(this.loadingContainer);
             
-            console.log("Starting boss preloader...");
-            console.time("Boss Preloading");
+ //           console.log("Starting boss preloader...");
+ //           console.time("Boss Preloading");
             
             // Load bosses sequentially
             this.loadNextBoss(0, resolve);
@@ -121,11 +121,11 @@ export class BossPreloader {
     loadNextBoss(index, resolveCallback) {
         if (index >= this.bossTypes.length) {
             // All bosses loaded
-            console.timeEnd("Boss Preloading");
-            console.log(`Successfully preloaded ${this.preloadedCount} boss types`);
+//            console.timeEnd("Boss Preloading");
+//            console.log(`Successfully preloaded ${this.preloadedCount} boss types`);
             
             // Log the current state of the boss pool
-            console.log("Boss pool status:", {
+           console.log("Boss pool status:", {
                 titan: bossPool.pools[BossType.TITAN].length,
                 sorcerer: bossPool.pools[BossType.SORCERER].length,
                 hunter: bossPool.pools[BossType.HUNTER].length
@@ -142,14 +142,14 @@ export class BossPreloader {
         const bossType = this.bossTypes[index];
         this.loadingText.textContent = `PREPARING ${this.getBossTypeName(bossType)}...`;
         
-        console.log(`Loading boss model: ${bossType}`);
+//        console.log(`Loading boss model: ${bossType}`);
         
         // Create the boss at a hidden position
         const boss = BossFactory.createBoss(this.scene, this.dummyPosition, this.player, 1, bossType);
         
         // Wait for the model to load
         this.waitForBossModelToLoad(boss, () => {
-            console.log(`Boss ${bossType} loaded successfully`);
+//            console.log(`Boss ${bossType} loaded successfully`);
             
             // Store boss directly in the pool instead of a separate array
             // First remove from scene and reset visibility
@@ -238,7 +238,7 @@ export class BossPreloader {
                 callback();
             } else if (attempts >= maxAttempts) {
                 // Timeout - proceed anyway
-                console.warn(`Timeout waiting for boss ${boss.type} model to load after ${attempts} attempts`);
+    //            console.warn(`Timeout waiting for boss ${boss.type} model to load after ${attempts} attempts`);
                 boss.mesh.visible = false;
                 
                 // Make sure healthbar is hidden

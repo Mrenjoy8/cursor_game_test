@@ -183,7 +183,7 @@ class Game {
             '/assets/bg_test1.png',
             (texture) => {
                 // Success - set the background to the loaded texture
-                console.log('Background image loaded successfully');
+//                console.log('Background image loaded successfully');
                 this.scene.background = texture;
             },
             undefined, // onProgress callback not needed
@@ -226,7 +226,7 @@ class Game {
     }
     
     initializeGameWithPreloader() {
-        console.log("Starting preloading process...");
+//        console.log("Starting preloading process...");
         
         // Track overall preloading progress
         let preloadingComplete = false;
@@ -252,7 +252,7 @@ class Game {
         };
         
         // First preload the enemies (most critical for first wave)
-        console.log("Step 1: Preloading enemy models...");
+//        console.log("Step 1: Preloading enemy models...");
         const enemyPreloader = new EnemyPreloader(this.scene, this.player);
         
         // Preload enemies, then when complete, preload bosses
@@ -260,7 +260,7 @@ class Game {
             console.log("Enemy preloading complete - starting boss preloading");
             
             // Now preload the boss models
-            console.log("Step 2: Preloading boss models...");
+//            console.log("Step 2: Preloading boss models...");
             const bossPreloader = new BossPreloader(this.scene, this.player);
             
             // Start boss preloading process - no need to keep a reference anymore
@@ -370,17 +370,17 @@ class Game {
             originalStartNextWave.call(this.waveManager);
             
             const waveNum = this.waveManager.currentWave;
-            console.log(`Wave ${waveNum} started`);
+//            console.log(`Wave ${waveNum} started`);
             
             if (waveNum % this.waveManager.bossWaveFrequency === 0) {
-                console.log(`Boss wave detected: ${waveNum}`);
+//                console.log(`Boss wave detected: ${waveNum}`);
             }
         };
         
         // Debug log for boss spawn
         const originalSpawnBoss = this.waveManager.spawnBoss;
         this.waveManager.spawnBoss = () => {
-            console.log("Boss spawn initiated");
+//            console.log("Boss spawn initiated");
             originalSpawnBoss.call(this.waveManager);
         };
     }
@@ -433,12 +433,12 @@ class Game {
                 return null;
             }).filter(state => state !== null);
             
-            console.log(`Paused game - saved positions for ${this.savedEnemyStates.length} enemies`);
+//            console.log(`Paused game - saved positions for ${this.savedEnemyStates.length} enemies`);
         }
         
         // Toggle pause state
         this.paused = !this.paused;
-        console.log(`Game ${this.paused ? 'paused' : 'resumed'}`);
+//        console.log(`Game ${this.paused ? 'paused' : 'resumed'}`);
         
         // Mark time when game is unpaused for smooth delta time calculation
         if (!this.paused) {
@@ -447,7 +447,7 @@ class Game {
         
         // If we're resuming, restore enemy positions
         if (!this.paused && this.savedEnemyStates && this.waveManager && this.waveManager.enemies) {
-            console.log(`Resuming game - restoring positions for ${this.savedEnemyStates.length} enemies`);
+//            console.log(`Resuming game - restoring positions for ${this.savedEnemyStates.length} enemies`);
             
             // Restore positions for all active enemies
             for (let i = 0; i < this.waveManager.enemies.length; i++) {
